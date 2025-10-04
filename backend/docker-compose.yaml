@@ -1,0 +1,14 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./main.py:/app/main.py
+      - ./.env:/app/.env
+    environment:
+      - ENVIRONMENT=development
+    container_name: workout-backend-dev
