@@ -13,3 +13,5 @@ ENV/
 .DS_Store
 .idea/
 .vscode/
+*serviceAccountKey.json
+claude.md
