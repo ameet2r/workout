@@ -50,7 +50,7 @@ const ActiveWorkoutPage = () => {
   }, [sessionId])
 
   useEffect(() => {
-    // Fetch exercise history when current exercise changes
+    // Fetch exercise history when current exercise changes (but not when sets are added)
     const fetchExerciseHistory = async () => {
       if (sessionExercises[currentExerciseIndex]) {
         const versionId = sessionExercises[currentExerciseIndex].exercise_version_id
@@ -64,7 +64,7 @@ const ActiveWorkoutPage = () => {
       }
     }
     fetchExerciseHistory()
-  }, [currentExerciseIndex, sessionExercises])
+  }, [currentExerciseIndex, sessionExercises.length])
 
   useEffect(() => {
     // Auto-set reps to 1 when in 1RM mode
