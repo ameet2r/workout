@@ -20,7 +20,9 @@ import {
   TableRow,
   Divider,
   TextField,
-  TableSortLabel
+  TableSortLabel,
+  Button,
+  ButtonGroup
 } from '@mui/material'
 import { LineChart } from '@mui/x-charts/LineChart'
 import { BarChart } from '@mui/x-charts/BarChart'
@@ -229,6 +231,38 @@ const ProgressPage = () => {
       .sort((a, b) => bodyPartSortOrder === 'desc' ? b.count - a.count : a.count - b.count)
   }
 
+  const handleQuickDateSelect = (range) => {
+    const today = new Date()
+    const todayString = today.toISOString().split('T')[0]
+
+    switch (range) {
+      case 'all':
+        setBodyPartStartDate('')
+        setBodyPartEndDate('')
+        break
+      case 'year':
+        const yearAgo = new Date(today)
+        yearAgo.setFullYear(today.getFullYear() - 1)
+        setBodyPartStartDate(yearAgo.toISOString().split('T')[0])
+        setBodyPartEndDate(todayString)
+        break
+      case '3months':
+        const threeMonthsAgo = new Date(today)
+        threeMonthsAgo.setMonth(today.getMonth() - 3)
+        setBodyPartStartDate(threeMonthsAgo.toISOString().split('T')[0])
+        setBodyPartEndDate(todayString)
+        break
+      case 'month':
+        const monthAgo = new Date(today)
+        monthAgo.setMonth(today.getMonth() - 1)
+        setBodyPartStartDate(monthAgo.toISOString().split('T')[0])
+        setBodyPartEndDate(todayString)
+        break
+      default:
+        break
+    }
+  }
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
@@ -361,6 +395,16 @@ const ProgressPage = () => {
         <Typography variant="h6" gutterBottom>
           Body Part Frequency
         </Typography>
+
+        <Box sx={{ mb: 3 }}>
+          <ButtonGroup variant="outlined" size="small" sx={{ mb: 2 }}>
+            <Button onClick={() => handleQuickDateSelect('all')}>All Time</Button>
+            <Button onClick={() => handleQuickDateSelect('year')}>Last Year</Button>
+            <Button onClick={() => handleQuickDateSelect('3months')}>Last 3 Months</Button>
+            <Button onClick={() => handleQuickDateSelect('month')}>Last Month</Button>
+          </ButtonGroup>
+        </Box>
+
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6}>
             <TextField
