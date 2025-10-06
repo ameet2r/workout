@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
   Drawer,
@@ -13,6 +13,7 @@ import {
   ListItemText,
   IconButton,
   Divider,
+  Chip,
 } from '@mui/material'
 import {
   Menu as MenuIcon,
@@ -23,8 +24,10 @@ import {
   SportsGymnastics,
   AccountCircle,
   Logout,
+  PlayArrow,
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
+import { authenticatedGet } from '../../utils/api'
 
 const drawerWidth = 240
 
@@ -39,8 +42,24 @@ const menuItems = [
 
 const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [activeWorkout, setActiveWorkout] = useState(null)
   const navigate = useNavigate()
+  const location = useLocation()
   const { logout, currentUser } = useAuth()
+
+  useEffect(() => {
+    fetchActiveWorkout()
+  }, [location.pathname])
+
+  const fetchActiveWorkout = async () => {
+    try {
+      const sessions = await authenticatedGet('/api/workout-sessions')
+      const active = sessions.find(session => !session.end_time)
+      setActiveWorkout(active)
+    } catch (err) {
+      console.error('Error fetching active workout:', err)
+    }
+  }
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
@@ -68,6 +87,36 @@ const Layout = () => {
         </Typography>
       </Toolbar>
       <Divider />
+      {activeWorkout && (
+        <>
+          <List>
+            <ListItem disablePadding>
+              <ListItemButton
+                onClick={() => handleNavigation(`/workout/${activeWorkout.id}`)}
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  }
+                }}
+              >
+                <ListItemIcon sx={{ color: 'primary.contrastText' }}>
+                  <PlayArrow />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Active Workout"
+                  secondary="In Progress"
+                  secondaryTypographyProps={{
+                    sx: { color: 'primary.contrastText', opacity: 0.8 }
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          </List>
+          <Divider />
+        </>
+      )}
       <List>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>

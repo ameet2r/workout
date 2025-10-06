@@ -24,7 +24,7 @@ import {
   MenuItem
 } from '@mui/material'
 import { Add, Delete, Check, Close } from '@mui/icons-material'
-import { authenticatedGet, authenticatedPatch, authenticatedPost } from '../utils/api'
+import { authenticatedGet, authenticatedPatch, authenticatedPost, authenticatedDelete } from '../utils/api'
 
 const ActiveWorkoutPage = () => {
   const { sessionId } = useParams()
@@ -41,6 +41,7 @@ const ActiveWorkoutPage = () => {
   const [currentWeight, setCurrentWeight] = useState('')
   const [currentRpe, setCurrentRpe] = useState('')
   const [openCompleteDialog, setOpenCompleteDialog] = useState(false)
+  const [openCancelDialog, setOpenCancelDialog] = useState(false)
   const [oneRmMode, setOneRmMode] = useState(false)
   const [exerciseHistory, setExerciseHistory] = useState({ sessions: [], estimated_1rm: null, actual_1rm: null })
 
@@ -213,7 +214,17 @@ const ActiveWorkoutPage = () => {
   }
 
   const handleCancelWorkout = () => {
-    navigate('/plans')
+    setOpenCancelDialog(true)
+  }
+
+  const handleConfirmCancelWorkout = async () => {
+    try {
+      await authenticatedDelete(`/api/workout-sessions/${sessionId}`)
+      setOpenCancelDialog(false)
+      navigate('/plans')
+    } catch (err) {
+      console.error('Error cancelling workout:', err)
+    }
   }
 
   const handleChangeExercise = (index) => {
@@ -549,6 +560,22 @@ const ActiveWorkoutPage = () => {
           <Button onClick={() => setOpenCompleteDialog(false)}>Cancel</Button>
           <Button onClick={handleCompleteWorkout} variant="contained" color="success">
             Complete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Cancel Workout Dialog */}
+      <Dialog open={openCancelDialog} onClose={() => setOpenCancelDialog(false)}>
+        <DialogTitle>Cancel Workout?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to cancel this workout? This will delete the session and all logged sets will be lost.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCancelDialog(false)}>Keep Workout</Button>
+          <Button onClick={handleConfirmCancelWorkout} variant="contained" color="error">
+            Cancel Workout
           </Button>
         </DialogActions>
       </Dialog>
