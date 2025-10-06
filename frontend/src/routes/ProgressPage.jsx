@@ -27,6 +27,8 @@ import {
 import { LineChart } from '@mui/x-charts/LineChart'
 import { BarChart } from '@mui/x-charts/BarChart'
 import { authenticatedGet } from '../utils/api'
+import BodyVisualization2D from '../components/BodyVisualization2D'
+import FrequencyLegend from '../components/FrequencyLegend'
 
 const ProgressPage = () => {
   const [loading, setLoading] = useState(true)
@@ -197,16 +199,23 @@ const ProgressPage = () => {
     // Filter sessions by date range
     const filteredSessions = workoutSessions.filter(session => {
       const sessionDate = new Date(session.start_time)
-      const start = startDate ? new Date(startDate) : null
-      const end = endDate ? new Date(endDate) : null
+
+      // Parse date strings as local dates (not UTC)
+      let start = null
+      if (startDate) {
+        const [year, month, day] = startDate.split('-').map(Number)
+        start = new Date(year, month - 1, day, 0, 0, 0, 0)
+      }
+
+      let end = null
+      if (endDate) {
+        const [year, month, day] = endDate.split('-').map(Number)
+        end = new Date(year, month - 1, day, 23, 59, 59, 999)
+      }
 
       if (start && sessionDate < start) return false
-      if (end) {
-        // Set end date to end of day
-        const endOfDay = new Date(end)
-        endOfDay.setHours(23, 59, 59, 999)
-        if (sessionDate > endOfDay) return false
-      }
+      if (end && sessionDate > end) return false
+
       return true
     })
 
@@ -231,9 +240,17 @@ const ProgressPage = () => {
       .sort((a, b) => bodyPartSortOrder === 'desc' ? b.count - a.count : a.count - b.count)
   }
 
+  // Helper function to get local date string in YYYY-MM-DD format
+  const getLocalDateString = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   const handleQuickDateSelect = (range) => {
     const today = new Date()
-    const todayString = today.toISOString().split('T')[0]
+    const todayString = getLocalDateString(today)
 
     switch (range) {
       case 'all':
@@ -243,19 +260,19 @@ const ProgressPage = () => {
       case 'year':
         const yearAgo = new Date(today)
         yearAgo.setFullYear(today.getFullYear() - 1)
-        setBodyPartStartDate(yearAgo.toISOString().split('T')[0])
+        setBodyPartStartDate(getLocalDateString(yearAgo))
         setBodyPartEndDate(todayString)
         break
       case '3months':
         const threeMonthsAgo = new Date(today)
         threeMonthsAgo.setMonth(today.getMonth() - 3)
-        setBodyPartStartDate(threeMonthsAgo.toISOString().split('T')[0])
+        setBodyPartStartDate(getLocalDateString(threeMonthsAgo))
         setBodyPartEndDate(todayString)
         break
       case 'month':
         const monthAgo = new Date(today)
         monthAgo.setMonth(today.getMonth() - 1)
-        setBodyPartStartDate(monthAgo.toISOString().split('T')[0])
+        setBodyPartStartDate(getLocalDateString(monthAgo))
         setBodyPartEndDate(todayString)
         break
       default:
@@ -429,32 +446,50 @@ const ProgressPage = () => {
         </Grid>
 
         {bodyPartFrequency.length > 0 ? (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Body Part / Muscle Group</TableCell>
-                  <TableCell align="right">
-                    <TableSortLabel
-                      active={true}
-                      direction={bodyPartSortOrder}
-                      onClick={() => setBodyPartSortOrder(bodyPartSortOrder === 'desc' ? 'asc' : 'desc')}
-                    >
-                      Times Trained
-                    </TableSortLabel>
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {bodyPartFrequency.map((item) => (
-                  <TableRow key={item.bodyPart}>
-                    <TableCell>{item.bodyPart}</TableCell>
-                    <TableCell align="right">{item.count}</TableCell>
+          <>
+            {/* Body Visualization */}
+            <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+              <Typography variant="subtitle1" gutterBottom align="center">
+                Muscle Group Heatmap
+              </Typography>
+              <BodyVisualization2D bodyPartFrequency={bodyPartFrequency} />
+
+              {/* Legend */}
+              <FrequencyLegend maxFrequency={Math.max(...bodyPartFrequency.map(item => item.count))} />
+            </Paper>
+
+            {/* Data Table */}
+            <Divider sx={{ my: 3 }} />
+            <Typography variant="subtitle2" gutterBottom>
+              Detailed Breakdown
+            </Typography>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Body Part / Muscle Group</TableCell>
+                    <TableCell align="right">
+                      <TableSortLabel
+                        active={true}
+                        direction={bodyPartSortOrder}
+                        onClick={() => setBodyPartSortOrder(bodyPartSortOrder === 'desc' ? 'asc' : 'desc')}
+                      >
+                        Times Trained
+                      </TableSortLabel>
+                    </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {bodyPartFrequency.map((item) => (
+                    <TableRow key={item.bodyPart}>
+                      <TableCell>{item.bodyPart}</TableCell>
+                      <TableCell align="right">{item.count}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </>
         ) : (
           <Typography color="text.secondary">
             No data available for the selected date range
