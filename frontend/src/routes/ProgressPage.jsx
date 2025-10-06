@@ -18,7 +18,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Divider
+  Divider,
+  TextField,
+  TableSortLabel
 } from '@mui/material'
 import { LineChart } from '@mui/x-charts/LineChart'
 import { BarChart } from '@mui/x-charts/BarChart'
@@ -31,6 +33,9 @@ const ProgressPage = () => {
   const [exerciseVersions, setExerciseVersions] = useState([])
   const [exercises, setExercises] = useState([])
   const [selectedExerciseVersionId, setSelectedExerciseVersionId] = useState('')
+  const [bodyPartStartDate, setBodyPartStartDate] = useState('')
+  const [bodyPartEndDate, setBodyPartEndDate] = useState('')
+  const [bodyPartSortOrder, setBodyPartSortOrder] = useState('desc')
 
   useEffect(() => {
     fetchData()
@@ -184,6 +189,46 @@ const ProgressPage = () => {
     return exerciseVersions.filter(v => performedIds.has(v.id))
   }
 
+  const getBodyPartFrequency = (startDate, endDate) => {
+    const bodyPartCounts = {}
+
+    // Filter sessions by date range
+    const filteredSessions = workoutSessions.filter(session => {
+      const sessionDate = new Date(session.start_time)
+      const start = startDate ? new Date(startDate) : null
+      const end = endDate ? new Date(endDate) : null
+
+      if (start && sessionDate < start) return false
+      if (end) {
+        // Set end date to end of day
+        const endOfDay = new Date(end)
+        endOfDay.setHours(23, 59, 59, 999)
+        if (sessionDate > endOfDay) return false
+      }
+      return true
+    })
+
+    // Count muscle groups from exercises
+    filteredSessions.forEach(session => {
+      session.exercises?.forEach(sessionExercise => {
+        const version = exerciseVersions.find(v => v.id === sessionExercise.exercise_version_id)
+        if (version) {
+          const exercise = exercises.find(e => e.id === version.exercise_id)
+          if (exercise?.muscle_groups) {
+            exercise.muscle_groups.forEach(muscleGroup => {
+              bodyPartCounts[muscleGroup] = (bodyPartCounts[muscleGroup] || 0) + 1
+            })
+          }
+        }
+      })
+    })
+
+    // Convert to array and sort
+    return Object.entries(bodyPartCounts)
+      .map(([bodyPart, count]) => ({ bodyPart, count }))
+      .sort((a, b) => bodyPartSortOrder === 'desc' ? b.count - a.count : a.count - b.count)
+  }
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
@@ -225,6 +270,7 @@ const ProgressPage = () => {
   const progressData = selectedExerciseVersionId ? getExerciseProgressData(selectedExerciseVersionId) : []
   const personalRecords = getPersonalRecords()
   const frequencyData = getWorkoutFrequencyData()
+  const bodyPartFrequency = getBodyPartFrequency(bodyPartStartDate, bodyPartEndDate)
 
   return (
     <Box>
@@ -309,6 +355,68 @@ const ProgressPage = () => {
           />
         </Paper>
       )}
+
+      {/* Body Part Frequency */}
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Body Part Frequency
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Start Date"
+              value={bodyPartStartDate}
+              onChange={(e) => setBodyPartStartDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="date"
+              label="End Date"
+              value={bodyPartEndDate}
+              onChange={(e) => setBodyPartEndDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+        </Grid>
+
+        {bodyPartFrequency.length > 0 ? (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Body Part / Muscle Group</TableCell>
+                  <TableCell align="right">
+                    <TableSortLabel
+                      active={true}
+                      direction={bodyPartSortOrder}
+                      onClick={() => setBodyPartSortOrder(bodyPartSortOrder === 'desc' ? 'asc' : 'desc')}
+                    >
+                      Times Trained
+                    </TableSortLabel>
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {bodyPartFrequency.map((item) => (
+                  <TableRow key={item.bodyPart}>
+                    <TableCell>{item.bodyPart}</TableCell>
+                    <TableCell align="right">{item.count}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Typography color="text.secondary">
+            No data available for the selected date range
+          </Typography>
+        )}
+      </Paper>
 
       {/* Exercise Progress Charts */}
       {performedVersions.length > 0 && (
