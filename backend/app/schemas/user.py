@@ -1,11 +1,11 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
 
 class UserBase(BaseModel):
     email: EmailStr
-    display_name: Optional[str] = None
+    display_name: Optional[str] = Field(None, min_length=1, max_length=100)
 
 
 class UserCreate(UserBase):

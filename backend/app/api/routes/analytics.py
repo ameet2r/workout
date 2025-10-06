@@ -39,7 +39,13 @@ async def get_exercise_progress(
 
     progress_data = []
 
-    #TODO: Why not includes exercise_version_id in the search, rather than grab everything then filter results
+    # NOTE: Firestore limitation - Cannot query nested array fields (exercises[].exercise_version_id)
+    # Therefore, we must fetch all user sessions and filter in application code.
+    # This is acceptable for typical user data volumes (<1000 sessions), but may need
+    # optimization if users have significantly more sessions:
+    # - Consider denormalizing exercise data into separate collection
+    # - Add pagination/caching if performance degrades
+    # - Monitor query performance and add limits if needed
     for session_doc in sessions:
         session_data = session_doc.to_dict()
 
@@ -85,10 +91,9 @@ async def get_personal_records(
     max_volume_pr = {"volume": 0, "date": None}
     max_reps_pr = {"reps": 0, "weight": 0, "date": None}
 
+    # NOTE: Same Firestore limitation as above - cannot query nested arrays efficiently
     for session_doc in sessions:
         session_data = session_doc.to_dict()
-
-        #TODO: Why not includes exercise_version_id in the search, rather than grab everything then filter results
 
         for exercise in session_data.get("exercises", []):
             if exercise["exercise_version_id"] == exercise_version_id:

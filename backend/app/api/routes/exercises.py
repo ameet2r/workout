@@ -17,6 +17,7 @@ async def create_exercise(exercise: ExerciseCreate, current_user: dict = Depends
     exercise_ref = db.collection("exercises").document()
 
     exercise_data = exercise.model_dump()
+    exercise_data["created_by"] = current_user["uid"]
     exercise_data["created_at"] = datetime.now()
     exercise_data["updated_at"] = datetime.now()
 
@@ -71,7 +72,7 @@ async def update_exercise(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Update an exercise by ID
+    Update an exercise by ID (only creator can update)
     """
     db = get_firestore_client()
     exercise_ref = db.collection("exercises").document(exercise_id)
@@ -79,6 +80,11 @@ async def update_exercise(
 
     if not exercise_doc.exists:
         raise HTTPException(status_code=404, detail="Exercise not found")
+
+    # Authorization check: only creator can update
+    exercise_data = exercise_doc.to_dict()
+    if exercise_data.get("created_by") != current_user["uid"]:
+        raise HTTPException(status_code=403, detail="Not authorized to update this exercise")
 
     # Only update fields that were provided
     update_data = exercise_update.model_dump(exclude_unset=True)

@@ -16,9 +16,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "uid": decoded_token["uid"],
             "email": decoded_token.get("email"),
         }
-    except Exception as e:
+    except Exception:
+        # Don't expose internal error details to prevent information disclosure
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication credentials: {str(e)}",
+            detail="Invalid or expired authentication token",
             headers={"WWW-Authenticate": "Bearer"},
         )

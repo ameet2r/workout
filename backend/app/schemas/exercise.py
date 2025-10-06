@@ -4,11 +4,11 @@ from datetime import datetime
 
 
 class ExerciseBase(BaseModel):
-    name: str
-    muscle_groups: List[str] = []
-    equipment: Optional[str] = None
-    category: str = "strength"
-    description: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=200)
+    muscle_groups: List[str] = Field(default_factory=list, max_length=10)
+    equipment: Optional[str] = Field(None, max_length=100)
+    category: str = Field(default="strength", max_length=50)
+    description: Optional[str] = Field(None, max_length=2000)
 
 
 class ExerciseCreate(ExerciseBase):
@@ -25,6 +25,7 @@ class ExerciseUpdate(BaseModel):
 
 class Exercise(ExerciseBase):
     id: str
+    created_by: str  # User ID of creator
     created_at: datetime
     updated_at: datetime
 
@@ -34,10 +35,10 @@ class Exercise(ExerciseBase):
 
 class ExerciseVersionBase(BaseModel):
     exercise_id: str
-    version_name: str
-    target_reps: Optional[str] = None  # e.g., "3-5" or "8-12"
-    target_sets: Optional[int] = None
-    notes: Optional[str] = None
+    version_name: str = Field(..., min_length=1, max_length=100)
+    target_reps: Optional[str] = Field(None, max_length=20)  # e.g., "3-5" or "8-12"
+    target_sets: Optional[int] = Field(None, ge=1, le=100)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class ExerciseVersionCreate(ExerciseVersionBase):
