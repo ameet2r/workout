@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Alert, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel, Grid, Card, CardContent, CardActions, Chip, Checkbox, FormControlLabel, Autocomplete } from '@mui/material'
 import { Add, Delete, PlayArrow, Edit } from '@mui/icons-material'
 import { authenticatedPost, authenticatedGet, authenticatedPatch } from '../utils/api'
 
 const WorkoutPlansPage = () => {
+  const navigate = useNavigate()
   const [openDialog, setOpenDialog] = useState(false)
   const [planName, setPlanName] = useState('')
   const [planDescription, setPlanDescription] = useState('')
@@ -25,6 +27,8 @@ const WorkoutPlansPage = () => {
   const [currentTimerType, setCurrentTimerType] = useState('per_set')
   const [workoutPlans, setWorkoutPlans] = useState([])
   const [editingPlanId, setEditingPlanId] = useState(null)
+  const [editingExerciseIndex, setEditingExerciseIndex] = useState(null)
+  const [exerciseHistory, setExerciseHistory] = useState({ sessions: [], estimated_1rm: null, actual_1rm: null })
 
   useEffect(() => {
     fetchWorkoutPlans()
@@ -35,6 +39,19 @@ const WorkoutPlansPage = () => {
       fetchExerciseData()
     }
   }, [openDialog])
+
+  useEffect(() => {
+    // Fetch history when exercise is selected (but not when editing existing exercise)
+    if (currentExerciseVersion && editingExerciseIndex === null && exerciseVersions.length > 0) {
+      const version = exerciseVersions.find(v => v.exercise_id === currentExerciseVersion.id)
+      if (version) {
+        fetchExerciseHistory(version.id)
+      } else {
+        // If no version exists yet for this exercise, clear history
+        setExerciseHistory({ sessions: [], estimated_1rm: null, actual_1rm: null })
+      }
+    }
+  }, [currentExerciseVersion, editingExerciseIndex, exerciseVersions])
 
   const fetchWorkoutPlans = async () => {
     try {
@@ -115,6 +132,39 @@ const WorkoutPlansPage = () => {
     setCurrentTimers(currentTimers.filter((_, i) => i !== index))
   }
 
+  const fetchExerciseHistory = async (versionId) => {
+    try {
+      const history = await authenticatedGet(`/api/workout-sessions/exercise-history/${versionId}`)
+      setExerciseHistory(history)
+    } catch (err) {
+      console.error('Error fetching exercise history:', err)
+      setExerciseHistory({ sessions: [], estimated_1rm: null, actual_1rm: null })
+    }
+  }
+
+  const handleEditExercise = async (index) => {
+    const exercise = selectedExercises[index]
+    setEditingExerciseIndex(index)
+
+    // Find the exercise version object
+    const version = exerciseVersions.find(v => v.id === exercise.exercise_version_id)
+    const exerciseObj = exercises.find(e => e.id === version?.exercise_id)
+
+    if (exerciseObj) {
+      setCurrentExerciseVersion(exerciseObj)
+    }
+
+    setCurrentSets(exercise.planned_sets?.toString() || '')
+    setCurrentReps(exercise.planned_reps || '')
+    setCurrentWeight(exercise.planned_weight?.toString() || '')
+    setCurrentIsBodyweight(exercise.is_bodyweight || false)
+    setCurrentInstruction(exercise.instruction || '')
+    setCurrentTimers(exercise.timers || [])
+
+    // Fetch exercise history
+    await fetchExerciseHistory(exercise.exercise_version_id)
+  }
+
   const handleAddExercise = async () => {
     if (!currentExerciseVersion) return
 
@@ -137,9 +187,9 @@ const WorkoutPlansPage = () => {
         await fetchExerciseData()
       }
 
-      const newExercise = {
+      const exerciseData = {
         exercise_version_id: versionId,
-        order: selectedExercises.length,
+        order: editingExerciseIndex !== null ? editingExerciseIndex : selectedExercises.length,
         planned_sets: currentSets ? parseInt(currentSets) : null,
         planned_reps: currentReps || null,
         planned_weight: currentWeight ? parseFloat(currentWeight) : null,
@@ -148,7 +198,17 @@ const WorkoutPlansPage = () => {
         timers: currentTimers
       }
 
-      setSelectedExercises([...selectedExercises, newExercise])
+      if (editingExerciseIndex !== null) {
+        // Update existing exercise
+        const updated = [...selectedExercises]
+        updated[editingExerciseIndex] = exerciseData
+        setSelectedExercises(updated)
+        setEditingExerciseIndex(null)
+      } else {
+        // Add new exercise
+        setSelectedExercises([...selectedExercises, exerciseData])
+      }
+
       setCurrentExerciseVersion(null)
       setCurrentSets('')
       setCurrentReps('')
@@ -160,9 +220,26 @@ const WorkoutPlansPage = () => {
       setCurrentTimerMinutes('')
       setCurrentTimerSeconds('')
       setCurrentTimerType('per_set')
+      setExerciseHistory({ sessions: [], estimated_1rm: null, actual_1rm: null })
     } catch (err) {
-      setError(`Failed to add exercise: ${err.message}`)
+      setError(`Failed to ${editingExerciseIndex !== null ? 'update' : 'add'} exercise: ${err.message}`)
     }
+  }
+
+  const handleCancelEditExercise = () => {
+    setEditingExerciseIndex(null)
+    setCurrentExerciseVersion(null)
+    setCurrentSets('')
+    setCurrentReps('')
+    setCurrentWeight('')
+    setCurrentIsBodyweight(false)
+    setCurrentInstruction('')
+    setCurrentTimers([])
+    setCurrentTimerHours('')
+    setCurrentTimerMinutes('')
+    setCurrentTimerSeconds('')
+    setCurrentTimerType('per_set')
+    setExerciseHistory({ sessions: [], estimated_1rm: null, actual_1rm: null })
   }
 
   const handleRemoveExercise = (index) => {
@@ -219,6 +296,18 @@ const WorkoutPlansPage = () => {
     }
   }
 
+  const handleStartWorkout = async (planId) => {
+    try {
+      const session = await authenticatedPost('/api/workout-sessions', {
+        workout_plan_id: planId,
+        exercises: []
+      })
+      navigate(`/workout/${session.id}`)
+    } catch (err) {
+      console.error('Error starting workout:', err)
+    }
+  }
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -257,7 +346,7 @@ const WorkoutPlansPage = () => {
                   </Box>
                 </CardContent>
                 <CardActions>
-                  <Button size="small" startIcon={<PlayArrow />}>
+                  <Button size="small" startIcon={<PlayArrow />} onClick={() => handleStartWorkout(plan.id)}>
                     Start Workout
                   </Button>
                   <Button size="small" startIcon={<Edit />} onClick={() => handleEditPlan(plan)}>
@@ -309,6 +398,11 @@ const WorkoutPlansPage = () => {
           </Typography>
 
           <Box sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+            {editingExerciseIndex !== null && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Editing exercise - update the values below and click "Update Exercise"
+              </Alert>
+            )}
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <Autocomplete
@@ -317,7 +411,7 @@ const WorkoutPlansPage = () => {
                   getOptionLabel={(option) => option.name}
                   value={currentExerciseVersion}
                   onChange={(_, newValue) => setCurrentExerciseVersion(newValue)}
-                  disabled={loading}
+                  disabled={loading || editingExerciseIndex !== null}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -476,16 +570,89 @@ const WorkoutPlansPage = () => {
               label="Body weight exercise"
               sx={{ mt: 1 }}
             />
-            <Button
-              variant="outlined"
-              startIcon={<Add />}
-              onClick={handleAddExercise}
-              disabled={!currentExerciseVersion || loading}
-              sx={{ mt: 2 }}
-              size="small"
-            >
-              Add Exercise
-            </Button>
+            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<Add />}
+                onClick={handleAddExercise}
+                disabled={!currentExerciseVersion || loading}
+                size="small"
+              >
+                {editingExerciseIndex !== null ? 'Update Exercise' : 'Add Exercise'}
+              </Button>
+              {editingExerciseIndex !== null && (
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleCancelEditExercise}
+                  disabled={loading}
+                  size="small"
+                >
+                  Cancel Edit
+                </Button>
+              )}
+            </Box>
+
+            {/* Exercise History */}
+            {(exerciseHistory.sessions.length > 0 || exerciseHistory.estimated_1rm || exerciseHistory.actual_1rm) && (
+              <Box sx={{ mt: 3, p: 2, bgcolor: 'success.lighter', borderRadius: 1 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Your Progress for this Exercise
+                </Typography>
+
+                {/* Stats Summary */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  {exerciseHistory.estimated_1rm && (
+                    <Grid item xs={6}>
+                      <Paper sx={{ p: 1, bgcolor: 'background.paper', textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Est. 1RM
+                        </Typography>
+                        <Typography variant="h6">
+                          {exerciseHistory.estimated_1rm}lbs
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  )}
+                  {exerciseHistory.actual_1rm && (
+                    <Grid item xs={6}>
+                      <Paper sx={{ p: 1, bgcolor: 'primary.main', color: 'primary.contrastText', textAlign: 'center' }}>
+                        <Typography variant="caption" display="block">
+                          Actual 1RM
+                        </Typography>
+                        <Typography variant="h6">
+                          {exerciseHistory.actual_1rm}lbs
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  )}
+                </Grid>
+
+                {exerciseHistory.sessions.length > 0 && (
+                  <>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                      Last {exerciseHistory.sessions.length} workout sessions:
+                    </Typography>
+                    {exerciseHistory.sessions.map((session, idx) => (
+                      <Paper key={idx} sx={{ p: 1.5, mb: 1, bgcolor: 'background.paper' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(session.date).toLocaleDateString()}
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
+                          {session.sets.map((set, setIdx) => (
+                            <Typography key={setIdx} variant="body2">
+                              Set {setIdx + 1}: {set.reps} reps
+                              {set.weight && ` @ ${set.weight}lbs`}
+                              {set.rpe && ` (RPE ${set.rpe})`}
+                            </Typography>
+                          ))}
+                        </Box>
+                      </Paper>
+                    ))}
+                  </>
+                )}
+              </Box>
+            )}
           </Box>
 
           {selectedExercises.length > 0 && (
@@ -494,9 +661,14 @@ const WorkoutPlansPage = () => {
                 <ListItem
                   key={index}
                   secondaryAction={
-                    <IconButton edge="end" onClick={() => handleRemoveExercise(index)} disabled={loading}>
-                      <Delete />
-                    </IconButton>
+                    <Box>
+                      <IconButton onClick={() => handleEditExercise(index)} disabled={loading} sx={{ mr: 1 }}>
+                        <Edit />
+                      </IconButton>
+                      <IconButton edge="end" onClick={() => handleRemoveExercise(index)} disabled={loading}>
+                        <Delete />
+                      </IconButton>
+                    </Box>
                   }
                   sx={{ bgcolor: 'background.default', mb: 1, borderRadius: 1 }}
                 >

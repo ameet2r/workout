@@ -18,7 +18,6 @@ import {
   Menu as MenuIcon,
   Dashboard,
   FitnessCenter,
-  PlayArrow,
   History,
   TrendingUp,
   SportsGymnastics,
@@ -32,7 +31,6 @@ const drawerWidth = 240
 const menuItems = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
   { text: 'Workout Plans', icon: <FitnessCenter />, path: '/plans' },
-  { text: 'Start Workout', icon: <PlayArrow />, path: '/workout/new' },
   { text: 'History', icon: <History />, path: '/history' },
   { text: 'Progress', icon: <TrendingUp />, path: '/progress' },
   { text: 'Exercises', icon: <SportsGymnastics />, path: '/exercises' },
