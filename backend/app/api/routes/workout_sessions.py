@@ -209,7 +209,7 @@ async def get_exercise_history(
     # Get all sessions for the user
     sessions_ref = db.collection("workout_sessions").where(
         "user_id", "==", current_user["uid"]
-    ).limit(100)  # Get last 100 sessions to search through
+    ).limit(10)  # Get last 10 sessions to search through
 
     sessions = sessions_ref.stream()
 
