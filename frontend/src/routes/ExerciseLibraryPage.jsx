@@ -22,14 +22,15 @@ import {
 } from '@mui/material'
 import { Add, Edit } from '@mui/icons-material'
 import { authenticatedGet, authenticatedPost, authenticatedPatch } from '../utils/api'
+import { useExercises } from '../contexts/ExerciseContext'
 import { getMuscleGroupOptions } from '../data/muscleGroups'
 import { suggestMuscleGroups } from '../utils/exerciseMuscleMapping'
 
 const CATEGORIES = ['strength', 'cardio', 'flexibility', 'sports']
 
 const ExerciseLibraryPage = () => {
+  const { exercises, refreshExercises } = useExercises()
   const [open, setOpen] = useState(false)
-  const [exercises, setExercises] = useState([])
   const [editingExercise, setEditingExercise] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -38,10 +39,6 @@ const ExerciseLibraryPage = () => {
     category: 'strength',
     description: ''
   })
-
-  useEffect(() => {
-    fetchExercises()
-  }, [])
 
   // Auto-suggest muscle groups when exercise name changes (only for new exercises)
   useEffect(() => {
@@ -52,15 +49,6 @@ const ExerciseLibraryPage = () => {
       }
     }
   }, [formData.name, editingExercise])
-
-  const fetchExercises = async () => {
-    try {
-      const data = await authenticatedGet('/api/exercises')
-      setExercises(data)
-    } catch (error) {
-      console.error('Error fetching exercises:', error)
-    }
-  }
 
   const handleOpen = () => setOpen(true)
   const handleClose = () => {
@@ -108,7 +96,7 @@ const ExerciseLibraryPage = () => {
       }
 
       handleClose()
-      fetchExercises()
+      await refreshExercises()
     } catch (error) {
       console.error('Error saving exercise:', error)
     }

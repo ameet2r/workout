@@ -25,16 +25,16 @@ import {
 } from '@mui/material'
 import { Add, Delete, Check, Close } from '@mui/icons-material'
 import { authenticatedGet, authenticatedPatch, authenticatedPost, authenticatedDelete } from '../utils/api'
+import { useExercises } from '../contexts/ExerciseContext'
 
 const ActiveWorkoutPage = () => {
   const { sessionId } = useParams()
   const navigate = useNavigate()
+  const { exercises, exerciseVersions } = useExercises()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [session, setSession] = useState(null)
   const [workoutPlan, setWorkoutPlan] = useState(null)
-  const [exerciseVersions, setExerciseVersions] = useState([])
-  const [exercises, setExercises] = useState([])
   const [sessionExercises, setSessionExercises] = useState([])
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [currentReps, setCurrentReps] = useState('')
@@ -76,15 +76,9 @@ const ActiveWorkoutPage = () => {
   const fetchWorkoutData = async () => {
     try {
       setLoading(true)
-      const [sessionData, versionsData, exercisesData] = await Promise.all([
-        authenticatedGet(`/api/workout-sessions/${sessionId}`),
-        authenticatedGet('/api/exercises/versions/my-versions'),
-        authenticatedGet('/api/exercises')
-      ])
+      const sessionData = await authenticatedGet(`/api/workout-sessions/${sessionId}`)
 
       setSession(sessionData)
-      setExerciseVersions(versionsData)
-      setExercises(exercisesData)
 
       // Fetch workout plan if session has a plan
       if (sessionData.workout_plan_id) {

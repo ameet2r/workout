@@ -27,15 +27,15 @@ import {
 import { LineChart } from '@mui/x-charts/LineChart'
 import { BarChart } from '@mui/x-charts/BarChart'
 import { authenticatedGet } from '../utils/api'
+import { useExercises } from '../contexts/ExerciseContext'
 import BodyVisualization2D from '../components/BodyVisualization2D'
 import FrequencyLegend from '../components/FrequencyLegend'
 
 const ProgressPage = () => {
+  const { exercises, exerciseVersions } = useExercises()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [workoutSessions, setWorkoutSessions] = useState([])
-  const [exerciseVersions, setExerciseVersions] = useState([])
-  const [exercises, setExercises] = useState([])
   const [selectedExerciseVersionId, setSelectedExerciseVersionId] = useState('')
   const [bodyPartStartDate, setBodyPartStartDate] = useState('')
   const [bodyPartEndDate, setBodyPartEndDate] = useState('')
@@ -48,17 +48,11 @@ const ProgressPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [sessionsData, versionsData, exercisesData] = await Promise.all([
-        authenticatedGet('/api/workout-sessions'),
-        authenticatedGet('/api/exercises/versions/my-versions'),
-        authenticatedGet('/api/exercises')
-      ])
+      const sessionsData = await authenticatedGet('/api/workout-sessions')
 
       // Only include completed sessions
       const completedSessions = sessionsData.filter(s => s.end_time)
       setWorkoutSessions(completedSessions)
-      setExerciseVersions(versionsData)
-      setExercises(exercisesData)
       setError(null)
     } catch (err) {
       setError(err.message)

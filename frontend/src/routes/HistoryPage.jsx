@@ -24,15 +24,15 @@ import {
 } from '@mui/material'
 import { ExpandMore, Visibility, Delete } from '@mui/icons-material'
 import { authenticatedGet, authenticatedDelete } from '../utils/api'
+import { useExercises } from '../contexts/ExerciseContext'
 
 const HistoryPage = () => {
   const navigate = useNavigate()
+  const { exercises, exerciseVersions } = useExercises()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [workoutSessions, setWorkoutSessions] = useState([])
   const [workoutPlans, setWorkoutPlans] = useState({})
-  const [exerciseVersions, setExerciseVersions] = useState([])
-  const [exercises, setExercises] = useState([])
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState(null)
 
@@ -43,11 +43,9 @@ const HistoryPage = () => {
   const fetchWorkoutHistory = async () => {
     try {
       setLoading(true)
-      const [sessionsData, plansData, versionsData, exercisesData] = await Promise.all([
+      const [sessionsData, plansData] = await Promise.all([
         authenticatedGet('/api/workout-sessions'),
-        authenticatedGet('/api/workout-plans'),
-        authenticatedGet('/api/exercises/versions/my-versions'),
-        authenticatedGet('/api/exercises')
+        authenticatedGet('/api/workout-plans')
       ])
 
       setWorkoutSessions(sessionsData)
@@ -58,9 +56,6 @@ const HistoryPage = () => {
         plansMap[plan.id] = plan
       })
       setWorkoutPlans(plansMap)
-
-      setExerciseVersions(versionsData)
-      setExercises(exercisesData)
       setError(null)
     } catch (err) {
       setError(err.message)

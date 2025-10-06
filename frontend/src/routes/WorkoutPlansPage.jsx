@@ -3,16 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Alert, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel, Grid, Card, CardContent, CardActions, Chip, Checkbox, FormControlLabel, Autocomplete } from '@mui/material'
 import { Add, Delete, PlayArrow, Edit } from '@mui/icons-material'
 import { authenticatedPost, authenticatedGet, authenticatedPatch } from '../utils/api'
+import { useExercises } from '../contexts/ExerciseContext'
 
 const WorkoutPlansPage = () => {
   const navigate = useNavigate()
+  const { exercises, exerciseVersions, refreshExercises } = useExercises()
   const [openDialog, setOpenDialog] = useState(false)
   const [planName, setPlanName] = useState('')
   const [planDescription, setPlanDescription] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [exerciseVersions, setExerciseVersions] = useState([])
-  const [exercises, setExercises] = useState([])
   const [selectedExercises, setSelectedExercises] = useState([])
   const [currentExerciseVersion, setCurrentExerciseVersion] = useState(null)
   const [currentSets, setCurrentSets] = useState('')
@@ -35,12 +35,6 @@ const WorkoutPlansPage = () => {
   }, [])
 
   useEffect(() => {
-    if (openDialog) {
-      fetchExerciseData()
-    }
-  }, [openDialog])
-
-  useEffect(() => {
     // Fetch history when exercise is selected (but not when editing existing exercise)
     if (currentExerciseVersion && editingExerciseIndex === null && exerciseVersions.length > 0) {
       const version = exerciseVersions.find(v => v.exercise_id === currentExerciseVersion.id)
@@ -59,19 +53,6 @@ const WorkoutPlansPage = () => {
       setWorkoutPlans(data)
     } catch (err) {
       console.error('Error fetching workout plans:', err)
-    }
-  }
-
-  const fetchExerciseData = async () => {
-    try {
-      const [versionsData, exercisesData] = await Promise.all([
-        authenticatedGet('/api/exercises/versions/my-versions'),
-        authenticatedGet('/api/exercises')
-      ])
-      setExerciseVersions(versionsData)
-      setExercises(exercisesData)
-    } catch (err) {
-      console.error('Error fetching exercise data:', err)
     }
   }
 
@@ -184,7 +165,7 @@ const WorkoutPlansPage = () => {
         })
         versionId = versionData.id
         // Refresh exercise versions
-        await fetchExerciseData()
+        await refreshExercises()
       }
 
       const exerciseData = {
