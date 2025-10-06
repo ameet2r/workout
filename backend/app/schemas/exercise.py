@@ -8,10 +8,19 @@ class ExerciseBase(BaseModel):
     muscle_groups: List[str] = []
     equipment: Optional[str] = None
     category: str = "strength"
+    description: Optional[str] = None
 
 
 class ExerciseCreate(ExerciseBase):
     pass
+
+
+class ExerciseUpdate(BaseModel):
+    name: Optional[str] = None
+    muscle_groups: Optional[List[str]] = None
+    equipment: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
 
 
 class Exercise(ExerciseBase):

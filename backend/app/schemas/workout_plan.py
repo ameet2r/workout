@@ -3,12 +3,20 @@ from typing import List, Optional
 from datetime import datetime
 
 
+class Timer(BaseModel):
+    duration: int  # Duration in seconds
+    type: str  # "total" or "per_set"
+
+
 class PlannedExercise(BaseModel):
     exercise_version_id: str
     order: int
     planned_sets: Optional[int] = None
     planned_reps: Optional[str] = None  # e.g., "3-5" or "8-12"
     planned_weight: Optional[float] = None
+    is_bodyweight: Optional[bool] = False
+    instruction: Optional[str] = None
+    timers: Optional[List[Timer]] = []
 
 
 class WorkoutPlanBase(BaseModel):

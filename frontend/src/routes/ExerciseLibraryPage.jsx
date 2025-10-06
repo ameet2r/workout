@@ -17,10 +17,11 @@ import {
   Grid,
   Card,
   CardContent,
-  Autocomplete
+  Autocomplete,
+  IconButton
 } from '@mui/material'
-import { Add } from '@mui/icons-material'
-import { authenticatedGet, authenticatedPost } from '../utils/api'
+import { Add, Edit } from '@mui/icons-material'
+import { authenticatedGet, authenticatedPost, authenticatedPatch } from '../utils/api'
 import { getMuscleGroupOptions } from '../data/muscleGroups'
 
 const CATEGORIES = ['strength', 'cardio', 'flexibility', 'sports']
@@ -28,11 +29,13 @@ const CATEGORIES = ['strength', 'cardio', 'flexibility', 'sports']
 const ExerciseLibraryPage = () => {
   const [open, setOpen] = useState(false)
   const [exercises, setExercises] = useState([])
+  const [editingExercise, setEditingExercise] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     muscle_groups: [],
     equipment: '',
-    category: 'strength'
+    category: 'strength',
+    description: ''
   })
 
   useEffect(() => {
@@ -51,12 +54,30 @@ const ExerciseLibraryPage = () => {
   const handleOpen = () => setOpen(true)
   const handleClose = () => {
     setOpen(false)
+    setEditingExercise(null)
     setFormData({
       name: '',
       muscle_groups: [],
       equipment: '',
-      category: 'strength'
+      category: 'strength',
+      description: ''
     })
+  }
+
+  const handleEdit = (exercise, event) => {
+    // Remove focus from the button to prevent aria-hidden warning
+    if (event?.currentTarget) {
+      event.currentTarget.blur()
+    }
+    setEditingExercise(exercise)
+    setFormData({
+      name: exercise.name,
+      muscle_groups: exercise.muscle_groups,
+      equipment: exercise.equipment || '',
+      category: exercise.category,
+      description: exercise.description || ''
+    })
+    setOpen(true)
   }
 
   const handleSubmit = async () => {
@@ -68,11 +89,17 @@ const ExerciseLibraryPage = () => {
           typeof mg === 'string' ? mg : mg.value
         )
       }
-      await authenticatedPost('/api/exercises', normalizedData)
+
+      if (editingExercise) {
+        await authenticatedPatch(`/api/exercises/${editingExercise.id}`, normalizedData)
+      } else {
+        await authenticatedPost('/api/exercises', normalizedData)
+      }
+
       handleClose()
       fetchExercises()
     } catch (error) {
-      console.error('Error creating exercise:', error)
+      console.error('Error saving exercise:', error)
     }
   }
 
@@ -97,15 +124,29 @@ const ExerciseLibraryPage = () => {
             <Grid item xs={12} sm={6} md={4} key={exercise.id}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    {exercise.name}
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Typography variant="h6">
+                      {exercise.name}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleEdit(exercise, e)}
+                      sx={{ mt: -1, mr: -1 }}
+                    >
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Box>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Category: {exercise.category}
                   </Typography>
                   {exercise.equipment && (
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Equipment: {exercise.equipment}
+                    </Typography>
+                  )}
+                  {exercise.description && (
+                    <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mt: 1 }}>
+                      {exercise.description}
                     </Typography>
                   )}
                   {exercise.muscle_groups.length > 0 && (
@@ -128,7 +169,7 @@ const ExerciseLibraryPage = () => {
       )}
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New Exercise</DialogTitle>
+        <DialogTitle>{editingExercise ? 'Edit Exercise' : 'Add New Exercise'}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -182,10 +223,12 @@ const ExerciseLibraryPage = () => {
             renderTags={(value, getTagProps) =>
               value.map((option, index) => {
                 const label = typeof option === 'string' ? option : option.label || option.value
+                const { key, ...tagProps } = getTagProps({ index })
                 return (
                   <Chip
+                    key={key}
                     label={label}
-                    {...getTagProps({ index })}
+                    {...tagProps}
                     size="small"
                   />
                 )
@@ -200,12 +243,23 @@ const ExerciseLibraryPage = () => {
             fullWidth
             value={formData.equipment}
             onChange={(e) => setFormData({ ...formData, equipment: e.target.value })}
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            margin="dense"
+            label="Description (optional)"
+            fullWidth
+            multiline
+            rows={3}
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
           <Button onClick={handleSubmit} variant="contained" disabled={!formData.name}>
-            Add Exercise
+            {editingExercise ? 'Save Changes' : 'Add Exercise'}
           </Button>
         </DialogActions>
       </Dialog>

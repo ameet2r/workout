@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Alert, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel, Grid, Card, CardContent, CardActions, Chip } from '@mui/material'
+import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Alert, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel, Grid, Card, CardContent, CardActions, Chip, Checkbox, FormControlLabel, Autocomplete } from '@mui/material'
 import { Add, Delete, PlayArrow, Edit } from '@mui/icons-material'
 import { authenticatedPost, authenticatedGet, authenticatedPatch } from '../utils/api'
 
@@ -12,10 +12,17 @@ const WorkoutPlansPage = () => {
   const [exerciseVersions, setExerciseVersions] = useState([])
   const [exercises, setExercises] = useState([])
   const [selectedExercises, setSelectedExercises] = useState([])
-  const [currentExerciseVersion, setCurrentExerciseVersion] = useState('')
+  const [currentExerciseVersion, setCurrentExerciseVersion] = useState(null)
   const [currentSets, setCurrentSets] = useState('')
   const [currentReps, setCurrentReps] = useState('')
   const [currentWeight, setCurrentWeight] = useState('')
+  const [currentIsBodyweight, setCurrentIsBodyweight] = useState(false)
+  const [currentInstruction, setCurrentInstruction] = useState('')
+  const [currentTimers, setCurrentTimers] = useState([])
+  const [currentTimerHours, setCurrentTimerHours] = useState('')
+  const [currentTimerMinutes, setCurrentTimerMinutes] = useState('')
+  const [currentTimerSeconds, setCurrentTimerSeconds] = useState('')
+  const [currentTimerType, setCurrentTimerType] = useState('per_set')
   const [workoutPlans, setWorkoutPlans] = useState([])
   const [editingPlanId, setEditingPlanId] = useState(null)
 
@@ -71,12 +78,41 @@ const WorkoutPlansPage = () => {
     setPlanName('')
     setPlanDescription('')
     setSelectedExercises([])
-    setCurrentExerciseVersion('')
+    setCurrentExerciseVersion(null)
     setCurrentSets('')
     setCurrentReps('')
     setCurrentWeight('')
+    setCurrentIsBodyweight(false)
+    setCurrentInstruction('')
+    setCurrentTimers([])
+    setCurrentTimerHours('')
+    setCurrentTimerMinutes('')
+    setCurrentTimerSeconds('')
+    setCurrentTimerType('per_set')
     setEditingPlanId(null)
     setError(null)
+  }
+
+  const handleAddTimer = () => {
+    const hours = parseInt(currentTimerHours) || 0
+    const minutes = parseInt(currentTimerMinutes) || 0
+    const seconds = parseInt(currentTimerSeconds) || 0
+    const totalSeconds = hours * 3600 + minutes * 60 + seconds
+
+    if (totalSeconds > 0) {
+      setCurrentTimers([...currentTimers, {
+        duration: totalSeconds,
+        type: currentTimerType
+      }])
+      setCurrentTimerHours('')
+      setCurrentTimerMinutes('')
+      setCurrentTimerSeconds('')
+      setCurrentTimerType('per_set')
+    }
+  }
+
+  const handleRemoveTimer = (index) => {
+    setCurrentTimers(currentTimers.filter((_, i) => i !== index))
   }
 
   const handleAddExercise = async () => {
@@ -84,14 +120,13 @@ const WorkoutPlansPage = () => {
 
     try {
       // Check if this is an exercise ID (not a version ID)
-      const isExerciseId = exercises.some(e => e.id === currentExerciseVersion)
-      let versionId = currentExerciseVersion
+      const isExerciseId = exercises.some(e => e.id === currentExerciseVersion.id)
+      let versionId = currentExerciseVersion.id
 
       // If it's an exercise ID, create a default version for the user
       if (isExerciseId) {
-        const exercise = exercises.find(e => e.id === currentExerciseVersion)
         const versionData = await authenticatedPost('/api/exercises/versions', {
-          exercise_id: currentExerciseVersion,
+          exercise_id: currentExerciseVersion.id,
           version_name: 'Default',
           target_sets: currentSets ? parseInt(currentSets) : null,
           target_reps: currentReps || null,
@@ -107,14 +142,24 @@ const WorkoutPlansPage = () => {
         order: selectedExercises.length,
         planned_sets: currentSets ? parseInt(currentSets) : null,
         planned_reps: currentReps || null,
-        planned_weight: currentWeight ? parseFloat(currentWeight) : null
+        planned_weight: currentWeight ? parseFloat(currentWeight) : null,
+        is_bodyweight: currentIsBodyweight,
+        instruction: currentInstruction || null,
+        timers: currentTimers
       }
 
       setSelectedExercises([...selectedExercises, newExercise])
-      setCurrentExerciseVersion('')
+      setCurrentExerciseVersion(null)
       setCurrentSets('')
       setCurrentReps('')
       setCurrentWeight('')
+      setCurrentIsBodyweight(false)
+      setCurrentInstruction('')
+      setCurrentTimers([])
+      setCurrentTimerHours('')
+      setCurrentTimerMinutes('')
+      setCurrentTimerSeconds('')
+      setCurrentTimerType('per_set')
     } catch (err) {
       setError(`Failed to add exercise: ${err.message}`)
     }
@@ -132,6 +177,20 @@ const WorkoutPlansPage = () => {
     if (!version) return 'Loading...'
     const exercise = exercises.find(e => e.id === version.exercise_id)
     return `${exercise?.name || 'Unknown'}${version.version_name !== 'Default' ? ` - ${version.version_name}` : ''}`
+  }
+
+  const formatTimerDisplay = (duration, type) => {
+    if (!duration) return ''
+    const hours = Math.floor(duration / 3600)
+    const minutes = Math.floor((duration % 3600) / 60)
+    const seconds = duration % 60
+
+    let timeStr = ''
+    if (hours > 0) timeStr += `${hours}h`
+    if (minutes > 0) timeStr += `${timeStr ? ' ' : ''}${minutes}m`
+    if (seconds > 0 || !timeStr) timeStr += `${timeStr ? ' ' : ''}${seconds}s`
+
+    return type === 'total' ? `${timeStr} total` : `${timeStr} per set`
   }
 
   const handleSubmit = async () => {
@@ -250,23 +309,28 @@ const WorkoutPlansPage = () => {
           </Typography>
 
           <Box sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
-            <Grid container spacing={2} alignItems="center">
+            <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Select Exercise</InputLabel>
-                  <Select
-                    value={currentExerciseVersion}
-                    label="Select Exercise"
-                    onChange={(e) => setCurrentExerciseVersion(e.target.value)}
-                    disabled={loading}
-                  >
-                    {exercises.map((exercise) => (
-                      <MenuItem key={exercise.id} value={exercise.id}>
-                        {exercise.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  size="small"
+                  options={exercises}
+                  getOptionLabel={(option) => option.name}
+                  value={currentExerciseVersion}
+                  onChange={(_, newValue) => setCurrentExerciseVersion(newValue)}
+                  disabled={loading}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Select Exercise"
+                      placeholder="Search exercises..."
+                    />
+                  )}
+                />
+                {currentExerciseVersion?.description && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    {currentExerciseVersion.description}
+                  </Typography>
+                )}
               </Grid>
               <Grid item xs={4} sm={2}>
                 <TextField
@@ -298,10 +362,120 @@ const WorkoutPlansPage = () => {
                   fullWidth
                   value={currentWeight}
                   onChange={(e) => setCurrentWeight(e.target.value)}
-                  disabled={loading}
+                  disabled={loading || currentIsBodyweight}
                 />
               </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  size="small"
+                  label="Instruction (optional)"
+                  fullWidth
+                  multiline
+                  rows={2}
+                  value={currentInstruction}
+                  onChange={(e) => setCurrentInstruction(e.target.value)}
+                  disabled={loading}
+                  placeholder="Add specific instructions for this exercise in the plan..."
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Add Timer (optional)
+                </Typography>
+              </Grid>
+              <Grid item xs={3} sm={2}>
+                <TextField
+                  size="small"
+                  label="Hours"
+                  type="number"
+                  fullWidth
+                  value={currentTimerHours}
+                  onChange={(e) => setCurrentTimerHours(e.target.value)}
+                  disabled={loading}
+                  inputProps={{ min: 0 }}
+                />
+              </Grid>
+              <Grid item xs={3} sm={2}>
+                <TextField
+                  size="small"
+                  label="Minutes"
+                  type="number"
+                  fullWidth
+                  value={currentTimerMinutes}
+                  onChange={(e) => setCurrentTimerMinutes(e.target.value)}
+                  disabled={loading}
+                  inputProps={{ min: 0, max: 59 }}
+                />
+              </Grid>
+              <Grid item xs={3} sm={2}>
+                <TextField
+                  size="small"
+                  label="Seconds"
+                  type="number"
+                  fullWidth
+                  value={currentTimerSeconds}
+                  onChange={(e) => setCurrentTimerSeconds(e.target.value)}
+                  disabled={loading}
+                  inputProps={{ min: 0, max: 59 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <FormControl fullWidth size="small" disabled={loading}>
+                  <InputLabel>Timer Type</InputLabel>
+                  <Select
+                    value={currentTimerType}
+                    label="Timer Type"
+                    onChange={(e) => setCurrentTimerType(e.target.value)}
+                  >
+                    <MenuItem value="per_set">Per Set</MenuItem>
+                    <MenuItem value="total">Total Exercise Time</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={3}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleAddTimer}
+                  disabled={loading}
+                  fullWidth
+                >
+                  Add Timer
+                </Button>
+              </Grid>
+              {currentTimers.length > 0 && (
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {currentTimers.map((timer, index) => (
+                      <Chip
+                        key={index}
+                        label={formatTimerDisplay(timer.duration, timer.type)}
+                        onDelete={() => handleRemoveTimer(index)}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    ))}
+                  </Box>
+                </Grid>
+              )}
             </Grid>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={currentIsBodyweight}
+                  onChange={(e) => {
+                    setCurrentIsBodyweight(e.target.checked)
+                    if (e.target.checked) {
+                      setCurrentWeight('')
+                    }
+                  }}
+                  disabled={loading}
+                />
+              }
+              label="Body weight exercise"
+              sx={{ mt: 1 }}
+            />
             <Button
               variant="outlined"
               startIcon={<Add />}
@@ -328,7 +502,29 @@ const WorkoutPlansPage = () => {
                 >
                   <ListItemText
                     primary={`${index + 1}. ${getExerciseVersionName(exercise.exercise_version_id)}`}
-                    secondary={`${exercise.planned_sets ? `${exercise.planned_sets} sets` : ''} ${exercise.planned_reps ? `× ${exercise.planned_reps} reps` : ''} ${exercise.planned_weight ? `@ ${exercise.planned_weight}lbs` : ''}`.trim() || 'No targets set'}
+                    secondary={
+                      <>
+                        {`${exercise.planned_sets ? `${exercise.planned_sets} sets` : ''} ${exercise.planned_reps ? `× ${exercise.planned_reps} reps` : ''} ${exercise.is_bodyweight ? '@ Body weight' : exercise.planned_weight ? `@ ${exercise.planned_weight}lbs` : ''}`.trim() || 'No targets set'}
+                        {exercise.timers && exercise.timers.length > 0 && (
+                          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {exercise.timers.map((timer, idx) => (
+                              <Chip
+                                key={idx}
+                                label={formatTimerDisplay(timer.duration, timer.type)}
+                                size="small"
+                                variant="outlined"
+                              />
+                            ))}
+                          </Box>
+                        )}
+                        {exercise.instruction && (
+                          <Typography component="span" variant="body2" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                            {exercise.instruction}
+                          </Typography>
+                        )}
+                      </>
+                    }
+                    secondaryTypographyProps={{ component: 'div' }}
                   />
                 </ListItem>
               ))}
