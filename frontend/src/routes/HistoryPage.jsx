@@ -15,10 +15,15 @@ import {
   Divider,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material'
-import { ExpandMore, Visibility } from '@mui/icons-material'
-import { authenticatedGet } from '../utils/api'
+import { ExpandMore, Visibility, Delete } from '@mui/icons-material'
+import { authenticatedGet, authenticatedDelete } from '../utils/api'
 
 const HistoryPage = () => {
   const navigate = useNavigate()
@@ -28,6 +33,8 @@ const HistoryPage = () => {
   const [workoutPlans, setWorkoutPlans] = useState({})
   const [exerciseVersions, setExerciseVersions] = useState([])
   const [exercises, setExercises] = useState([])
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [sessionToDelete, setSessionToDelete] = useState(null)
 
   useEffect(() => {
     fetchWorkoutHistory()
@@ -118,6 +125,33 @@ const HistoryPage = () => {
       })
     })
     return volume
+  }
+
+  const handleDeleteClick = (session) => {
+    setSessionToDelete(session)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false)
+    setSessionToDelete(null)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!sessionToDelete) return
+
+    try {
+      await authenticatedDelete(`/api/workout-sessions/${sessionToDelete.id}`)
+      setWorkoutSessions(prevSessions =>
+        prevSessions.filter(session => session.id !== sessionToDelete.id)
+      )
+      setDeleteDialogOpen(false)
+      setSessionToDelete(null)
+    } catch (err) {
+      setError(err.message)
+      setDeleteDialogOpen(false)
+      setSessionToDelete(null)
+    }
   }
 
   if (loading) {
@@ -263,8 +297,8 @@ const HistoryPage = () => {
                   )}
                 </CardContent>
 
-                {!isCompleted && (
-                  <CardActions>
+                <CardActions>
+                  {!isCompleted && (
                     <Button
                       size="small"
                       startIcon={<Visibility />}
@@ -272,13 +306,39 @@ const HistoryPage = () => {
                     >
                       Resume Workout
                     </Button>
-                  </CardActions>
-                )}
+                  )}
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={<Delete />}
+                    onClick={() => handleDeleteClick(session)}
+                  >
+                    Delete
+                  </Button>
+                </CardActions>
               </Card>
             </Grid>
           )
         })}
       </Grid>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+      >
+        <DialogTitle>Delete Workout Session</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this workout session? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

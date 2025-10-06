@@ -171,6 +171,30 @@ async def complete_workout_session(
     }
 
 
+@router.delete("/{session_id}")
+async def delete_workout_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Delete a workout session
+    """
+    db = get_firestore_client()
+    session_ref = db.collection("workout_sessions").document(session_id)
+    session_doc = session_ref.get()
+
+    if not session_doc.exists:
+        raise HTTPException(status_code=404, detail="Workout session not found")
+
+    session_data = session_doc.to_dict()
+    if session_data["user_id"] != current_user["uid"]:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this session")
+
+    session_ref.delete()
+
+    return {"message": "Workout session deleted successfully"}
+
+
 @router.get("/exercise-history/{exercise_version_id}")
 async def get_exercise_history(
     exercise_version_id: str,
