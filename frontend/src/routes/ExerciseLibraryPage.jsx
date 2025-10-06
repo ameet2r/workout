@@ -23,6 +23,7 @@ import {
 import { Add, Edit } from '@mui/icons-material'
 import { authenticatedGet, authenticatedPost, authenticatedPatch } from '../utils/api'
 import { getMuscleGroupOptions } from '../data/muscleGroups'
+import { suggestMuscleGroups } from '../utils/exerciseMuscleMapping'
 
 const CATEGORIES = ['strength', 'cardio', 'flexibility', 'sports']
 
@@ -41,6 +42,16 @@ const ExerciseLibraryPage = () => {
   useEffect(() => {
     fetchExercises()
   }, [])
+
+  // Auto-suggest muscle groups when exercise name changes (only for new exercises)
+  useEffect(() => {
+    if (!editingExercise && formData.name && formData.muscle_groups.length === 0) {
+      const suggested = suggestMuscleGroups(formData.name)
+      if (suggested.length > 0) {
+        setFormData(prev => ({ ...prev, muscle_groups: suggested }))
+      }
+    }
+  }, [formData.name, editingExercise])
 
   const fetchExercises = async () => {
     try {
