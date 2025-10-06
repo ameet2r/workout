@@ -9,7 +9,7 @@ const DashboardPage = () => {
     {
       title: 'Start Workout',
       icon: <FitnessCenter sx={{ fontSize: 40 }} />,
-      path: '/workout/new',
+      path: '/plans',
       color: '#1976d2',
     },
     {
