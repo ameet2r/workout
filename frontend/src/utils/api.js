@@ -1,6 +1,6 @@
 import { auth } from '../config/firebase'
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_API || 'http://localhost:8000'
+const API_BASE_URL = import.meta.env.VITE_BACKEND_API
 
 /**
  * Get authentication headers with Firebase ID token
@@ -18,9 +18,6 @@ const getAuthHeaders = async () => {
   }
 }
 
-/**
- * Authenticated GET request
- */
 export const authenticatedGet = async (endpoint) => {
   const headers = await getAuthHeaders()
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -36,9 +33,6 @@ export const authenticatedGet = async (endpoint) => {
   return response.json()
 }
 
-/**
- * Authenticated POST request
- */
 export const authenticatedPost = async (endpoint, data) => {
   const headers = await getAuthHeaders()
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -55,9 +49,6 @@ export const authenticatedPost = async (endpoint, data) => {
   return response.json()
 }
 
-/**
- * Authenticated PATCH request
- */
 export const authenticatedPatch = async (endpoint, data) => {
   const headers = await getAuthHeaders()
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -74,9 +65,6 @@ export const authenticatedPatch = async (endpoint, data) => {
   return response.json()
 }
 
-/**
- * Authenticated DELETE request
- */
 export const authenticatedDelete = async (endpoint) => {
   const headers = await getAuthHeaders()
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {

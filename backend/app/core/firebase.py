@@ -27,6 +27,7 @@ def get_firestore_client() -> firestore.Client:
 def verify_firebase_token(token: str) -> dict:
     """Verify Firebase ID token and return decoded token"""
     try:
+        initialize_firebase()
         decoded_token = auth.verify_id_token(token)
         return decoded_token
     except Exception as e:

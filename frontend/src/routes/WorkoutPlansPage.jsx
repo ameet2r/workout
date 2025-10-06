@@ -1,21 +1,352 @@
-import { Box, Typography, Button, Paper } from '@mui/material'
-import { Add } from '@mui/icons-material'
+import { useState, useEffect } from 'react'
+import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Alert, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel, Grid, Card, CardContent, CardActions, Chip } from '@mui/material'
+import { Add, Delete, PlayArrow, Edit } from '@mui/icons-material'
+import { authenticatedPost, authenticatedGet, authenticatedPatch } from '../utils/api'
 
 const WorkoutPlansPage = () => {
+  const [openDialog, setOpenDialog] = useState(false)
+  const [planName, setPlanName] = useState('')
+  const [planDescription, setPlanDescription] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [exerciseVersions, setExerciseVersions] = useState([])
+  const [exercises, setExercises] = useState([])
+  const [selectedExercises, setSelectedExercises] = useState([])
+  const [currentExerciseVersion, setCurrentExerciseVersion] = useState('')
+  const [currentSets, setCurrentSets] = useState('')
+  const [currentReps, setCurrentReps] = useState('')
+  const [currentWeight, setCurrentWeight] = useState('')
+  const [workoutPlans, setWorkoutPlans] = useState([])
+  const [editingPlanId, setEditingPlanId] = useState(null)
+
+  useEffect(() => {
+    fetchWorkoutPlans()
+  }, [])
+
+  useEffect(() => {
+    if (openDialog) {
+      fetchExerciseData()
+    }
+  }, [openDialog])
+
+  const fetchWorkoutPlans = async () => {
+    try {
+      const data = await authenticatedGet('/api/workout-plans')
+      setWorkoutPlans(data)
+    } catch (err) {
+      console.error('Error fetching workout plans:', err)
+    }
+  }
+
+  const fetchExerciseData = async () => {
+    try {
+      const [versionsData, exercisesData] = await Promise.all([
+        authenticatedGet('/api/exercises/versions/my-versions'),
+        authenticatedGet('/api/exercises')
+      ])
+      setExerciseVersions(versionsData)
+      setExercises(exercisesData)
+    } catch (err) {
+      console.error('Error fetching exercise data:', err)
+    }
+  }
+
+  const handleCreatePlan = () => {
+    setEditingPlanId(null)
+    setOpenDialog(true)
+    setError(null)
+  }
+
+  const handleEditPlan = (plan) => {
+    setEditingPlanId(plan.id)
+    setPlanName(plan.name)
+    setPlanDescription(plan.notes || '')
+    setSelectedExercises(plan.exercises || [])
+    setOpenDialog(true)
+    setError(null)
+  }
+
+  const handleClose = () => {
+    setOpenDialog(false)
+    setPlanName('')
+    setPlanDescription('')
+    setSelectedExercises([])
+    setCurrentExerciseVersion('')
+    setCurrentSets('')
+    setCurrentReps('')
+    setCurrentWeight('')
+    setEditingPlanId(null)
+    setError(null)
+  }
+
+  const handleAddExercise = async () => {
+    if (!currentExerciseVersion) return
+
+    try {
+      // Check if this is an exercise ID (not a version ID)
+      const isExerciseId = exercises.some(e => e.id === currentExerciseVersion)
+      let versionId = currentExerciseVersion
+
+      // If it's an exercise ID, create a default version for the user
+      if (isExerciseId) {
+        const exercise = exercises.find(e => e.id === currentExerciseVersion)
+        const versionData = await authenticatedPost('/api/exercises/versions', {
+          exercise_id: currentExerciseVersion,
+          version_name: 'Default',
+          target_sets: currentSets ? parseInt(currentSets) : null,
+          target_reps: currentReps || null,
+          notes: null
+        })
+        versionId = versionData.id
+        // Refresh exercise versions
+        await fetchExerciseData()
+      }
+
+      const newExercise = {
+        exercise_version_id: versionId,
+        order: selectedExercises.length,
+        planned_sets: currentSets ? parseInt(currentSets) : null,
+        planned_reps: currentReps || null,
+        planned_weight: currentWeight ? parseFloat(currentWeight) : null
+      }
+
+      setSelectedExercises([...selectedExercises, newExercise])
+      setCurrentExerciseVersion('')
+      setCurrentSets('')
+      setCurrentReps('')
+      setCurrentWeight('')
+    } catch (err) {
+      setError(`Failed to add exercise: ${err.message}`)
+    }
+  }
+
+  const handleRemoveExercise = (index) => {
+    const updated = selectedExercises.filter((_, i) => i !== index)
+    // Reorder remaining exercises
+    const reordered = updated.map((ex, i) => ({ ...ex, order: i }))
+    setSelectedExercises(reordered)
+  }
+
+  const getExerciseVersionName = (versionId) => {
+    const version = exerciseVersions.find(v => v.id === versionId)
+    if (!version) return 'Loading...'
+    const exercise = exercises.find(e => e.id === version.exercise_id)
+    return `${exercise?.name || 'Unknown'}${version.version_name !== 'Default' ? ` - ${version.version_name}` : ''}`
+  }
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const payload = {
+        name: planName,
+        notes: planDescription || null,
+        exercises: selectedExercises
+      }
+
+      if (editingPlanId) {
+        await authenticatedPatch(`/api/workout-plans/${editingPlanId}`, payload)
+      } else {
+        await authenticatedPost('/api/workout-plans', payload)
+      }
+
+      handleClose()
+      await fetchWorkoutPlans()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Workout Plans</Typography>
-        <Button variant="contained" startIcon={<Add />}>
+        <Button variant="contained" startIcon={<Add />} onClick={handleCreatePlan}>
           Create Plan
         </Button>
       </Box>
 
-      <Paper sx={{ p: 3 }}>
-        <Typography color="text.secondary">
-          No workout plans yet. Create your first plan to get started!
-        </Typography>
-      </Paper>
+      {workoutPlans.length === 0 ? (
+        <Paper sx={{ p: 3 }}>
+          <Typography color="text.secondary">
+            No workout plans yet. Create your first plan to get started!
+          </Typography>
+        </Paper>
+      ) : (
+        <Grid container spacing={2}>
+          {workoutPlans.map((plan) => (
+            <Grid item xs={12} sm={6} md={4} key={plan.id}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {plan.name}
+                  </Typography>
+                  {plan.notes && (
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {plan.notes}
+                    </Typography>
+                  )}
+                  <Box sx={{ mt: 2 }}>
+                    <Chip
+                      label={`${plan.exercises?.length || 0} exercises`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </Box>
+                </CardContent>
+                <CardActions>
+                  <Button size="small" startIcon={<PlayArrow />}>
+                    Start Workout
+                  </Button>
+                  <Button size="small" startIcon={<Edit />} onClick={() => handleEditPlan(plan)}>
+                    Edit
+                  </Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      <Dialog open={openDialog} onClose={handleClose} maxWidth="md" fullWidth>
+        <DialogTitle>{editingPlanId ? 'Edit Workout Plan' : 'Create Workout Plan'}</DialogTitle>
+        <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Plan Name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={planName}
+            onChange={(e) => setPlanName(e.target.value)}
+            sx={{ mb: 2 }}
+            disabled={loading}
+          />
+          <TextField
+            margin="dense"
+            label="Description"
+            type="text"
+            fullWidth
+            variant="outlined"
+            multiline
+            rows={2}
+            value={planDescription}
+            onChange={(e) => setPlanDescription(e.target.value)}
+            disabled={loading}
+            sx={{ mb: 3 }}
+          />
+
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Exercises
+          </Typography>
+
+          <Box sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Select Exercise</InputLabel>
+                  <Select
+                    value={currentExerciseVersion}
+                    label="Select Exercise"
+                    onChange={(e) => setCurrentExerciseVersion(e.target.value)}
+                    disabled={loading}
+                  >
+                    {exercises.map((exercise) => (
+                      <MenuItem key={exercise.id} value={exercise.id}>
+                        {exercise.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={4} sm={2}>
+                <TextField
+                  size="small"
+                  label="Sets"
+                  type="number"
+                  fullWidth
+                  value={currentSets}
+                  onChange={(e) => setCurrentSets(e.target.value)}
+                  disabled={loading}
+                />
+              </Grid>
+              <Grid item xs={4} sm={2}>
+                <TextField
+                  size="small"
+                  label="Reps"
+                  fullWidth
+                  value={currentReps}
+                  onChange={(e) => setCurrentReps(e.target.value)}
+                  placeholder="e.g. 8-12"
+                  disabled={loading}
+                />
+              </Grid>
+              <Grid item xs={4} sm={2}>
+                <TextField
+                  size="small"
+                  label="Weight"
+                  type="number"
+                  fullWidth
+                  value={currentWeight}
+                  onChange={(e) => setCurrentWeight(e.target.value)}
+                  disabled={loading}
+                />
+              </Grid>
+            </Grid>
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
+              onClick={handleAddExercise}
+              disabled={!currentExerciseVersion || loading}
+              sx={{ mt: 2 }}
+              size="small"
+            >
+              Add Exercise
+            </Button>
+          </Box>
+
+          {selectedExercises.length > 0 && (
+            <List dense>
+              {selectedExercises.map((exercise, index) => (
+                <ListItem
+                  key={index}
+                  secondaryAction={
+                    <IconButton edge="end" onClick={() => handleRemoveExercise(index)} disabled={loading}>
+                      <Delete />
+                    </IconButton>
+                  }
+                  sx={{ bgcolor: 'background.default', mb: 1, borderRadius: 1 }}
+                >
+                  <ListItemText
+                    primary={`${index + 1}. ${getExerciseVersionName(exercise.exercise_version_id)}`}
+                    secondary={`${exercise.planned_sets ? `${exercise.planned_sets} sets` : ''} ${exercise.planned_reps ? `× ${exercise.planned_reps} reps` : ''} ${exercise.planned_weight ? `@ ${exercise.planned_weight}lbs` : ''}`.trim() || 'No targets set'}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose} disabled={loading}>Cancel</Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            disabled={!planName.trim() || loading}
+            startIcon={loading && <CircularProgress size={20} />}
+          >
+            {editingPlanId ? 'Save' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
