@@ -78,13 +78,20 @@ const GarminUpload = ({ sessionId, onUploadSuccess }) => {
         throw new Error(errorData.detail || 'Upload failed')
       }
 
-      const data = await response.json()
-      setSuccess(`Successfully uploaded! ${data.data_points.heart_rate} heart rate points, ${data.data_points.gps} GPS points`)
+      const updatedSession = await response.json()
+
+      // Count data points for success message
+      const hasGarminData = updatedSession.garmin_data
+      const hrCount = hasGarminData?.has_heart_rate ? 'with heart rate' : ''
+      const gpsCount = hasGarminData?.has_gps ? 'GPS' : ''
+      const features = [hrCount, gpsCount].filter(Boolean).join(', ')
+
+      setSuccess(`Successfully uploaded! ${features || 'Garmin data uploaded'}`)
       setSelectedFile(null)
 
-      // Call the success callback to refresh data
+      // Call the success callback with the updated session
       if (onUploadSuccess) {
-        onUploadSuccess(data)
+        onUploadSuccess(updatedSession)
       }
 
     } catch (err) {

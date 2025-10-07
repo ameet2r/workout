@@ -28,7 +28,7 @@ import ImportGarminDialog from '../components/garmin/ImportGarminDialog'
 const HistoryPage = () => {
   const navigate = useNavigate()
   const { exercises, exerciseVersions } = useExercises()
-  const { workoutSessions, workoutPlans, loading, error, deleteWorkoutSession: removeFromContext, refreshHistory } = useHistory()
+  const { workoutSessions, workoutPlans, loading, error, deleteWorkoutSession: removeFromContext, addWorkoutSession } = useHistory()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState(null)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
@@ -69,9 +69,9 @@ const HistoryPage = () => {
     }
   }
 
-  const handleImportSuccess = async () => {
-    // Refresh the history to show the new workout
-    await refreshHistory()
+  const handleImportSuccess = (newSession) => {
+    // Add the new session to the context instead of refetching all sessions
+    addWorkoutSession(newSession)
   }
 
   if (loading) {

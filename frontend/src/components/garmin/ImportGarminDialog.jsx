@@ -59,38 +59,14 @@ const ImportGarminDialog = ({ open, onClose, onSuccess }) => {
       const auth = getAuth()
       const token = await auth.currentUser.getIdToken()
 
-      // Step 1: Create a new workout session
-      setUploadProgress(40)
-      const createResponse = await fetch(
-        `${import.meta.env.VITE_BACKEND_API}/api/workout-sessions`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            exercises: [],
-            notes: `Imported from ${selectedFile.name}`
-          })
-        }
-      )
-
-      if (!createResponse.ok) {
-        const errorData = await createResponse.json()
-        throw new Error(errorData.detail || 'Failed to create workout session')
-      }
-
-      const newSession = await createResponse.json()
-      const sessionId = newSession.id
-
-      // Step 2: Upload Garmin file to the new session
-      setUploadProgress(60)
+      // Single request to create session and upload Garmin file
+      setUploadProgress(50)
       const formData = new FormData()
       formData.append('file', selectedFile)
+      formData.append('notes', `Imported from ${selectedFile.name}`)
 
-      const uploadResponse = await fetch(
-        `${import.meta.env.VITE_BACKEND_API}/api/workout-sessions/${sessionId}/upload-garmin`,
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_API}/api/workout-sessions/import-garmin`,
         {
           method: 'POST',
           headers: {
@@ -102,12 +78,12 @@ const ImportGarminDialog = ({ open, onClose, onSuccess }) => {
 
       setUploadProgress(90)
 
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json()
-        throw new Error(errorData.detail || 'Upload failed')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Import failed')
       }
 
-      const uploadData = await uploadResponse.json()
+      const newSession = await response.json()
       setUploadProgress(100)
 
       // Success! Navigate to the new session
@@ -117,7 +93,7 @@ const ImportGarminDialog = ({ open, onClose, onSuccess }) => {
 
       // Navigate to the workout detail page
       setTimeout(() => {
-        navigate(`/history/${sessionId}`)
+        navigate(`/history/${newSession.id}`)
         handleClose()
       }, 500)
 
@@ -189,7 +165,7 @@ const ImportGarminDialog = ({ open, onClose, onSuccess }) => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <CircularProgress size={24} />
               <Typography variant="body2" color="text.secondary">
-                {uploadProgress < 50 ? 'Creating workout session...' : 'Uploading and processing file...'}
+                Importing workout...
               </Typography>
             </Box>
           )}

@@ -38,7 +38,7 @@ const WorkoutDetailPage = () => {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const { exercises, exerciseVersions } = useExercises()
-  const { getWorkoutSession, workoutPlans, loading, deleteWorkoutSession: removeFromContext, refreshHistory } = useHistory()
+  const { getWorkoutSession, workoutPlans, loading, deleteWorkoutSession: removeFromContext, updateWorkoutSession, refreshHistory } = useHistory()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteGarminDialogOpen, setDeleteGarminDialogOpen] = useState(false)
   const [deletingGarmin, setDeletingGarmin] = useState(false)
@@ -50,9 +50,9 @@ const WorkoutDetailPage = () => {
   const session = getWorkoutSession(sessionId)
   const workoutPlan = session?.workout_plan_id ? workoutPlans[session.workout_plan_id] : null
 
-  const handleGarminUploadSuccess = async () => {
-    // Refresh the workout session data
-    await refreshHistory()
+  const handleGarminUploadSuccess = (updatedSession) => {
+    // Update just this session in context instead of refetching all sessions
+    updateWorkoutSession(sessionId, updatedSession)
     // Force re-render of Garmin data components
     setGarminDataKey(prev => prev + 1)
   }

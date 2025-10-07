@@ -260,56 +260,69 @@ async def upload_garmin_file(
 
         session_ref.update(update_data)
 
-        # Store time-series data in subcollections
+        # Store time-series data in subcollections using batch writes
         time_series_ref = session_ref.collection("time_series")
+
+        # Collect all writes to execute in batches
+        all_writes = []
 
         # Heart rate data
         if parsed_data['time_series']['heart_rate']:
             hr_batches = batch_time_series_data(parsed_data['time_series']['heart_rate'])
             for idx, batch in enumerate(hr_batches):
-                time_series_ref.document(f"heart_rate_{idx}").set({"data": batch})
+                all_writes.append((f"heart_rate_{idx}", {"data": batch}))
 
         # GPS data
         if parsed_data['time_series']['gps']:
             gps_batches = batch_gps_data(parsed_data['time_series']['gps'])
             for idx, batch in enumerate(gps_batches):
-                time_series_ref.document(f"gps_{idx}").set({"data": batch})
+                all_writes.append((f"gps_{idx}", {"data": batch}))
 
         # Temperature data
         if parsed_data['time_series']['temperature']:
             temp_batches = batch_time_series_data(parsed_data['time_series']['temperature'])
             for idx, batch in enumerate(temp_batches):
-                time_series_ref.document(f"temperature_{idx}").set({"data": batch})
+                all_writes.append((f"temperature_{idx}", {"data": batch}))
 
         # Cadence data
         if parsed_data['time_series']['cadence']:
             cad_batches = batch_time_series_data(parsed_data['time_series']['cadence'])
             for idx, batch in enumerate(cad_batches):
-                time_series_ref.document(f"cadence_{idx}").set({"data": batch})
+                all_writes.append((f"cadence_{idx}", {"data": batch}))
 
         # Power data
         if parsed_data['time_series']['power']:
             power_batches = batch_time_series_data(parsed_data['time_series']['power'])
             for idx, batch in enumerate(power_batches):
-                time_series_ref.document(f"power_{idx}").set({"data": batch})
+                all_writes.append((f"power_{idx}", {"data": batch}))
 
         # Altitude data
         if parsed_data['time_series']['altitude']:
             altitude_batches = batch_time_series_data(parsed_data['time_series']['altitude'])
             for idx, batch in enumerate(altitude_batches):
-                time_series_ref.document(f"altitude_{idx}").set({"data": batch})
+                all_writes.append((f"altitude_{idx}", {"data": batch}))
+
+        # Execute all writes in batches (Firestore allows max 500 operations per batch)
+        FIRESTORE_BATCH_LIMIT = 500
+        for i in range(0, len(all_writes), FIRESTORE_BATCH_LIMIT):
+            batch = db.batch()
+            for doc_id, data in all_writes[i:i + FIRESTORE_BATCH_LIMIT]:
+                batch.set(time_series_ref.document(doc_id), data)
+            batch.commit()
+
+        # Get the updated session and return it
+        updated_doc = session_ref.get()
+        updated_data = updated_doc.to_dict()
+
+        # Convert Firestore timestamps to ISO format strings
+        if "start_time" in updated_data and updated_data["start_time"]:
+            updated_data["start_time"] = updated_data["start_time"].isoformat() if hasattr(updated_data["start_time"], "isoformat") else updated_data["start_time"]
+        if "end_time" in updated_data and updated_data["end_time"]:
+            updated_data["end_time"] = updated_data["end_time"].isoformat() if hasattr(updated_data["end_time"], "isoformat") else updated_data["end_time"]
 
         return {
-            "message": "Garmin data uploaded successfully",
-            "summary": garmin_data,
-            "data_points": {
-                "heart_rate": len(parsed_data['time_series']['heart_rate']),
-                "gps": len(parsed_data['time_series']['gps']),
-                "temperature": len(parsed_data['time_series']['temperature']),
-                "cadence": len(parsed_data['time_series']['cadence']),
-                "power": len(parsed_data['time_series']['power']),
-                "altitude": len(parsed_data['time_series']['altitude'])
-            }
+            "id": session_id,
+            **updated_data
         }
 
     except ValueError as e:
@@ -319,6 +332,139 @@ async def upload_garmin_file(
         import traceback
         error_details = traceback.format_exc()
         print(f"Error processing Garmin file: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+
+@router.post("/import-garmin", response_model=WorkoutSession)
+async def import_garmin_workout(
+    file: UploadFile = File(...),
+    notes: str = "",
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Create a new workout session and upload Garmin file in a single request.
+    This is optimized for importing workouts from Garmin devices.
+    """
+    # Validate file size (10 MB limit)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+    file_content = await file.read()
+
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 10 MB")
+
+    # Validate file type
+    allowed_extensions = ['.fit', '.tcx', '.gpx', '.zip']
+    if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Please upload a .fit, .tcx, .gpx, or .zip file"
+        )
+
+    try:
+        # Parse the file first
+        parsed_data = parse_garmin_file(file.filename, file_content)
+        garmin_data = parsed_data['summary']
+
+        # Create workout session with Garmin data
+        db = get_firestore_client()
+        session_ref = db.collection("workout_sessions").document()
+
+        # Build session data
+        session_data = {
+            "user_id": current_user["uid"],
+            "exercises": [],
+            "notes": notes or f"Imported from {file.filename}",
+            "garmin_data": garmin_data
+        }
+
+        # Use start_time from Garmin file if available
+        if parsed_data.get('start_time'):
+            start_time = parsed_data['start_time']
+            if isinstance(start_time, str):
+                from dateutil import parser as date_parser
+                start_time = date_parser.parse(start_time)
+            session_data['start_time'] = start_time
+
+            # Calculate end_time from duration
+            if garmin_data.get('duration'):
+                from datetime import timedelta
+                end_time = start_time + timedelta(seconds=garmin_data['duration'])
+                session_data['end_time'] = end_time
+            else:
+                session_data['end_time'] = None
+        else:
+            session_data["start_time"] = datetime.now()
+            session_data["end_time"] = None
+
+        # Create the session
+        session_ref.set(session_data)
+
+        # Store time-series data in subcollections using batch writes
+        time_series_ref = session_ref.collection("time_series")
+        all_writes = []
+
+        # Heart rate data
+        if parsed_data['time_series']['heart_rate']:
+            hr_batches = batch_time_series_data(parsed_data['time_series']['heart_rate'])
+            for idx, batch in enumerate(hr_batches):
+                all_writes.append((f"heart_rate_{idx}", {"data": batch}))
+
+        # GPS data
+        if parsed_data['time_series']['gps']:
+            gps_batches = batch_gps_data(parsed_data['time_series']['gps'])
+            for idx, batch in enumerate(gps_batches):
+                all_writes.append((f"gps_{idx}", {"data": batch}))
+
+        # Temperature data
+        if parsed_data['time_series']['temperature']:
+            temp_batches = batch_time_series_data(parsed_data['time_series']['temperature'])
+            for idx, batch in enumerate(temp_batches):
+                all_writes.append((f"temperature_{idx}", {"data": batch}))
+
+        # Cadence data
+        if parsed_data['time_series']['cadence']:
+            cad_batches = batch_time_series_data(parsed_data['time_series']['cadence'])
+            for idx, batch in enumerate(cad_batches):
+                all_writes.append((f"cadence_{idx}", {"data": batch}))
+
+        # Power data
+        if parsed_data['time_series']['power']:
+            power_batches = batch_time_series_data(parsed_data['time_series']['power'])
+            for idx, batch in enumerate(power_batches):
+                all_writes.append((f"power_{idx}", {"data": batch}))
+
+        # Altitude data
+        if parsed_data['time_series']['altitude']:
+            altitude_batches = batch_time_series_data(parsed_data['time_series']['altitude'])
+            for idx, batch in enumerate(altitude_batches):
+                all_writes.append((f"altitude_{idx}", {"data": batch}))
+
+        # Execute all writes in batches
+        FIRESTORE_BATCH_LIMIT = 500
+        for i in range(0, len(all_writes), FIRESTORE_BATCH_LIMIT):
+            batch = db.batch()
+            for doc_id, data in all_writes[i:i + FIRESTORE_BATCH_LIMIT]:
+                batch.set(time_series_ref.document(doc_id), data)
+            batch.commit()
+
+        # Return the created session
+        final_session_data = session_data.copy()
+        if "start_time" in final_session_data and final_session_data["start_time"]:
+            final_session_data["start_time"] = final_session_data["start_time"].isoformat() if hasattr(final_session_data["start_time"], "isoformat") else final_session_data["start_time"]
+        if "end_time" in final_session_data and final_session_data["end_time"]:
+            final_session_data["end_time"] = final_session_data["end_time"].isoformat() if hasattr(final_session_data["end_time"], "isoformat") else final_session_data["end_time"]
+
+        return {
+            "id": session_ref.id,
+            **final_session_data
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error importing Garmin workout: {error_details}")
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
 
 
