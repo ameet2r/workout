@@ -21,12 +21,15 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Switch,
+  FormControlLabel
 } from '@mui/material'
-import { Add, Delete, Check, Close, PlayArrow, Stop, Refresh } from '@mui/icons-material'
+import { Add, Delete, Check, Close, PlayArrow, Stop, Refresh, Favorite, Bluetooth, BluetoothDisabled } from '@mui/icons-material'
 import { authenticatedGet, authenticatedPatch, authenticatedPost, authenticatedDelete } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
 import { useHistory } from '../contexts/HistoryContext'
+import { useHeartRateMonitor } from '../hooks/useHeartRateMonitor'
 
 const ActiveWorkoutPage = () => {
   const { sessionId } = useParams()
@@ -45,32 +48,68 @@ const ActiveWorkoutPage = () => {
   const [openCompleteDialog, setOpenCompleteDialog] = useState(false)
   const [openCancelDialog, setOpenCancelDialog] = useState(false)
   const [oneRmMode, setOneRmMode] = useState(false)
-  const [exerciseHistory, setExerciseHistory] = useState({ sessions: [], estimated_1rm: null, actual_1rm: null })
+  const [exerciseHistoryCache, setExerciseHistoryCache] = useState({}) // Cache by exercise_version_id
   const [activeTimerIndex, setActiveTimerIndex] = useState(null)
   const [timeRemaining, setTimeRemaining] = useState(null)
   const timerIntervalRef = useRef(null)
   const audioRef = useRef(null)
 
+  // Heart rate monitoring
+  const { isSupported, isConnected, currentHeartRate, deviceName, error: hrError, connect, disconnect } = useHeartRateMonitor()
+  const [heartRateReadings, setHeartRateReadings] = useState([])
+  const [includeHeartRate, setIncludeHeartRate] = useState(false)
+
   useEffect(() => {
     fetchWorkoutData()
   }, [sessionId])
 
+  // Load session exercises and heart rate data from localStorage on mount
   useEffect(() => {
-    // Fetch exercise history when current exercise changes (but not when sets are added)
-    const fetchExerciseHistory = async () => {
-      if (sessionExercises[currentExerciseIndex]) {
-        const versionId = sessionExercises[currentExerciseIndex].exercise_version_id
-        try {
-          const history = await authenticatedGet(`/api/workout-sessions/exercise-history/${versionId}`)
-          setExerciseHistory(history)
-        } catch (err) {
-          console.error('Error fetching exercise history:', err)
-          setExerciseHistory({ sessions: [], estimated_1rm: null, actual_1rm: null })
-        }
+    const storedExercises = localStorage.getItem(`workout_session_${sessionId}_exercises`)
+    const storedHeartRate = localStorage.getItem(`workout_session_${sessionId}_heart_rate`)
+
+    if (storedExercises) {
+      try {
+        const parsed = JSON.parse(storedExercises)
+        setSessionExercises(parsed)
+      } catch (err) {
+        console.error('Error parsing stored exercises:', err)
       }
     }
-    fetchExerciseHistory()
-  }, [currentExerciseIndex, sessionExercises.length])
+
+    if (storedHeartRate) {
+      try {
+        const parsed = JSON.parse(storedHeartRate)
+        setHeartRateReadings(parsed)
+      } catch (err) {
+        console.error('Error parsing stored heart rate:', err)
+      }
+    }
+  }, [sessionId])
+
+  // Save session exercises to localStorage whenever they change
+  useEffect(() => {
+    if (sessionExercises.length > 0) {
+      localStorage.setItem(`workout_session_${sessionId}_exercises`, JSON.stringify(sessionExercises))
+    }
+  }, [sessionExercises, sessionId])
+
+  // Record heart rate readings to localStorage
+  useEffect(() => {
+    if (currentHeartRate && isConnected) {
+      const newReading = {
+        timestamp: new Date().toISOString(),
+        value: currentHeartRate
+      }
+
+      setHeartRateReadings(prev => {
+        const updated = [...prev, newReading]
+        // Save to localStorage
+        localStorage.setItem(`workout_session_${sessionId}_heart_rate`, JSON.stringify(updated))
+        return updated
+      })
+    }
+  }, [currentHeartRate, isConnected, sessionId])
 
   useEffect(() => {
     // Auto-set reps to 1 when in 1RM mode
@@ -165,7 +204,7 @@ const ActiveWorkoutPage = () => {
     return exercise?.equipment || null
   }
 
-  const handleAddSet = async () => {
+  const handleAddSet = () => {
     if (!currentReps) return
 
     const currentExercise = sessionExercises[currentExerciseIndex]
@@ -183,18 +222,7 @@ const ActiveWorkoutPage = () => {
       sets: [...currentExercise.sets, newSet]
     }
     setSessionExercises(updatedExercises)
-
-    // Save to backend
-    try {
-      await authenticatedPatch(`/api/workout-sessions/${sessionId}`, {
-        exercises: updatedExercises.map(ex => ({
-          exercise_version_id: ex.exercise_version_id,
-          sets: ex.sets
-        }))
-      })
-    } catch (err) {
-      console.error('Error saving set:', err)
-    }
+    // Note: Data is automatically saved to localStorage via useEffect
 
     // Reset inputs
     setCurrentReps('')
@@ -207,35 +235,87 @@ const ActiveWorkoutPage = () => {
     }
   }
 
-  const handleDeleteSet = async (exerciseIndex, setIndex) => {
+  const handleDeleteSet = (exerciseIndex, setIndex) => {
     const updatedExercises = [...sessionExercises]
     updatedExercises[exerciseIndex] = {
       ...updatedExercises[exerciseIndex],
       sets: updatedExercises[exerciseIndex].sets.filter((_, i) => i !== setIndex)
     }
     setSessionExercises(updatedExercises)
-
-    // Save to backend
-    try {
-      await authenticatedPatch(`/api/workout-sessions/${sessionId}`, {
-        exercises: updatedExercises.map(ex => ({
-          exercise_version_id: ex.exercise_version_id,
-          sets: ex.sets
-        }))
-      })
-    } catch (err) {
-      console.error('Error deleting set:', err)
-    }
+    // Note: Data is automatically saved to localStorage via useEffect
   }
 
   const handleCompleteWorkout = async () => {
     try {
+      // Prepare exercise data for upload
+      const exercisesData = sessionExercises.map(ex => ({
+        exercise_version_id: ex.exercise_version_id,
+        sets: ex.sets
+      }))
+
+      // Update session with exercises data
+      await authenticatedPatch(`/api/workout-sessions/${sessionId}`, {
+        exercises: exercisesData
+      })
+
+      // If user wants to include heart rate data
+      if (includeHeartRate && heartRateReadings.length > 0) {
+        // Calculate summary statistics
+        const hrValues = heartRateReadings.map(r => r.value)
+        const avgHeartRate = Math.round(hrValues.reduce((a, b) => a + b, 0) / hrValues.length)
+        const maxHeartRate = Math.max(...hrValues)
+        const minHeartRate = Math.min(...hrValues)
+
+        const garminData = {
+          avg_heart_rate: avgHeartRate,
+          max_heart_rate: maxHeartRate,
+          min_heart_rate: minHeartRate,
+          has_heart_rate: true
+        }
+
+        // Upload summary data
+        await authenticatedPatch(`/api/workout-sessions/${sessionId}`, {
+          garmin_data: garminData
+        })
+
+        // Upload time-series heart rate data to subcollection
+        // Batch heart rate readings into groups of 150 (matching backend BATCH_SIZE)
+        const BATCH_SIZE = 150
+        const batches = []
+        for (let i = 0; i < heartRateReadings.length; i += BATCH_SIZE) {
+          batches.push(heartRateReadings.slice(i, i + BATCH_SIZE))
+        }
+
+        // Create time-series documents
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i]
+          // Note: This requires a new backend endpoint or we use Firestore directly
+          // For now, we'll send it to backend which can handle it
+          // Backend will need to support creating time_series subcollection documents
+          await authenticatedPost(`/api/workout-sessions/${sessionId}/heart-rate-batch/${i}`, {
+            data: batch
+          })
+        }
+      }
+
+      // Mark workout as complete
       await authenticatedPost(`/api/workout-sessions/${sessionId}/complete`, {})
+
+      // Clean up localStorage
+      localStorage.removeItem(`workout_session_${sessionId}_exercises`)
+      localStorage.removeItem(`workout_session_${sessionId}_heart_rate`)
+
+      // Disconnect heart rate monitor if connected
+      if (isConnected) {
+        disconnect()
+      }
+
       await refreshHistory()
       setOpenCompleteDialog(false)
       navigate('/history')
     } catch (err) {
       console.error('Error completing workout:', err)
+      alert(`Error completing workout: ${err.message}`)
     }
   }
 
@@ -247,10 +327,55 @@ const ActiveWorkoutPage = () => {
     try {
       await authenticatedDelete(`/api/workout-sessions/${sessionId}`)
       deleteWorkoutSession(sessionId)
+
+      // Clean up localStorage
+      localStorage.removeItem(`workout_session_${sessionId}_exercises`)
+      localStorage.removeItem(`workout_session_${sessionId}_heart_rate`)
+
+      // Disconnect heart rate monitor if connected
+      if (isConnected) {
+        disconnect()
+      }
+
       setOpenCancelDialog(false)
       navigate('/plans')
     } catch (err) {
       console.error('Error cancelling workout:', err)
+    }
+  }
+
+  const fetchExerciseHistory = async (versionId) => {
+    // Check if already cached
+    if (exerciseHistoryCache[versionId]) {
+      return exerciseHistoryCache[versionId]
+    }
+
+    try {
+      const history = await authenticatedGet(`/api/workout-sessions/exercise-history/${versionId}`)
+      setExerciseHistoryCache(prev => ({
+        ...prev,
+        [versionId]: history
+      }))
+      return history
+    } catch (err) {
+      console.error('Error fetching exercise history:', err)
+      const emptyHistory = { sessions: [], estimated_1rm: null, actual_1rm: null }
+      setExerciseHistoryCache(prev => ({
+        ...prev,
+        [versionId]: emptyHistory
+      }))
+      return emptyHistory
+    }
+  }
+
+  const handleToggle1RmMode = async () => {
+    const newMode = !oneRmMode
+    setOneRmMode(newMode)
+
+    // Lazy load exercise history when 1RM mode is turned ON
+    if (newMode && sessionExercises[currentExerciseIndex]) {
+      const versionId = sessionExercises[currentExerciseIndex].exercise_version_id
+      await fetchExerciseHistory(versionId)
     }
   }
 
@@ -442,6 +567,76 @@ const ActiveWorkoutPage = () => {
         </Paper>
       )}
 
+      {/* Heart Rate Monitor Section */}
+      {isSupported && (
+        <Paper sx={{ p: 2, mb: 3, bgcolor: isConnected ? 'success.lighter' : 'background.paper' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {isConnected ? <Bluetooth color="success" /> : <BluetoothDisabled />}
+              <Typography variant="h6">
+                Heart Rate Monitor
+              </Typography>
+            </Box>
+            <Button
+              variant={isConnected ? 'outlined' : 'contained'}
+              color={isConnected ? 'error' : 'primary'}
+              onClick={isConnected ? disconnect : connect}
+              startIcon={isConnected ? <BluetoothDisabled /> : <Bluetooth />}
+            >
+              {isConnected ? 'Disconnect' : 'Connect'}
+            </Button>
+          </Box>
+
+          {hrError && (
+            <Alert severity="error" sx={{ mb: 1 }}>
+              {hrError}
+            </Alert>
+          )}
+
+          {isConnected && (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                {currentHeartRate && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Favorite color="error" sx={{ animation: 'pulse 1s infinite' }} />
+                    <Typography variant="h4" color="error">
+                      {currentHeartRate}
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                      BPM
+                    </Typography>
+                  </Box>
+                )}
+                {deviceName && (
+                  <Typography variant="body2" color="text.secondary">
+                    Device: {deviceName}
+                  </Typography>
+                )}
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                {heartRateReadings.length} reading{heartRateReadings.length !== 1 ? 's' : ''} collected
+              </Typography>
+            </Box>
+          )}
+
+          {!isConnected && (
+            <Typography variant="body2" color="text.secondary">
+              Connect a Bluetooth heart rate monitor to track your heart rate during this workout.
+              Compatible with most Garmin, Polar, and standard BLE heart rate monitors.
+            </Typography>
+          )}
+
+          <style>
+            {`
+              @keyframes pulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.2); }
+              }
+            `}
+          </style>
+        </Paper>
+      )}
+
       {/* Exercise Navigation */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Typography variant="subtitle2" gutterBottom>
@@ -598,53 +793,58 @@ const ActiveWorkoutPage = () => {
                     variant={oneRmMode ? 'contained' : 'outlined'}
                     color={oneRmMode ? 'secondary' : 'primary'}
                     size="small"
-                    onClick={() => setOneRmMode(!oneRmMode)}
+                    onClick={handleToggle1RmMode}
                   >
                     {oneRmMode ? '1RM Mode Active' : '1RM Mode'}
                   </Button>
                 </Box>
 
                 {/* Display 1RM Stats when in 1RM mode */}
-                {oneRmMode && (
-                  <Paper sx={{ p: 2, mb: 2, bgcolor: 'warning.lighter' }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Your Current 1RM Stats:
-                    </Typography>
-                    <Grid container spacing={2}>
-                      {exerciseHistory.actual_1rm && (
-                        <Grid item xs={6}>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Actual 1RM
+                {oneRmMode && (() => {
+                  const currentVersionId = currentExercise?.exercise_version_id
+                  const exerciseHistory = currentVersionId ? exerciseHistoryCache[currentVersionId] || { sessions: [], estimated_1rm: null, actual_1rm: null } : { sessions: [], estimated_1rm: null, actual_1rm: null }
+
+                  return (
+                    <Paper sx={{ p: 2, mb: 2, bgcolor: 'warning.lighter' }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Your Current 1RM Stats:
+                      </Typography>
+                      <Grid container spacing={2}>
+                        {exerciseHistory.actual_1rm && (
+                          <Grid item xs={6}>
+                            <Box sx={{ textAlign: 'center' }}>
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                Actual 1RM
+                              </Typography>
+                              <Typography variant="h6" color="primary">
+                                {exerciseHistory.actual_1rm}lbs
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        )}
+                        {exerciseHistory.estimated_1rm && (
+                          <Grid item xs={6}>
+                            <Box sx={{ textAlign: 'center' }}>
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                Est. 1RM
+                              </Typography>
+                              <Typography variant="h6">
+                                {exerciseHistory.estimated_1rm}lbs
+                              </Typography>
+                            </Box>
+                          </Grid>
+                        )}
+                        {!exerciseHistory.actual_1rm && !exerciseHistory.estimated_1rm && (
+                          <Grid item xs={12}>
+                            <Typography variant="body2" color="text.secondary">
+                              No previous data for this exercise
                             </Typography>
-                            <Typography variant="h6" color="primary">
-                              {exerciseHistory.actual_1rm}lbs
-                            </Typography>
-                          </Box>
-                        </Grid>
-                      )}
-                      {exerciseHistory.estimated_1rm && (
-                        <Grid item xs={6}>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              Est. 1RM
-                            </Typography>
-                            <Typography variant="h6">
-                              {exerciseHistory.estimated_1rm}lbs
-                            </Typography>
-                          </Box>
-                        </Grid>
-                      )}
-                      {!exerciseHistory.actual_1rm && !exerciseHistory.estimated_1rm && (
-                        <Grid item xs={12}>
-                          <Typography variant="body2" color="text.secondary">
-                            No previous data for this exercise
-                          </Typography>
-                        </Grid>
-                      )}
-                    </Grid>
-                  </Paper>
-                )}
+                          </Grid>
+                        )}
+                      </Grid>
+                    </Paper>
+                  )
+                })()}
 
                 <Grid container spacing={2}>
                   <Grid item xs={4}>
@@ -765,9 +965,34 @@ const ActiveWorkoutPage = () => {
       <Dialog open={openCompleteDialog} onClose={() => setOpenCompleteDialog(false)}>
         <DialogTitle>Complete Workout?</DialogTitle>
         <DialogContent>
-          <Typography>
+          <Typography gutterBottom>
             Are you sure you want to complete this workout? This will end the session and save all logged sets.
           </Typography>
+
+          {heartRateReadings.length > 0 && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: 'info.lighter', borderRadius: 1 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={includeHeartRate}
+                    onChange={(e) => setIncludeHeartRate(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body1">
+                      Include heart rate data
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {heartRateReadings.length} reading{heartRateReadings.length !== 1 ? 's' : ''} collected
+                      {heartRateReadings.length > 0 && ` • Avg: ${Math.round(heartRateReadings.reduce((a, b) => a + b.value, 0) / heartRateReadings.length)} BPM`}
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenCompleteDialog(false)}>Cancel</Button>

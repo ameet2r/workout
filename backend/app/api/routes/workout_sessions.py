@@ -606,6 +606,52 @@ async def delete_garmin_data(
         raise HTTPException(status_code=500, detail=f"Error deleting Garmin data: {str(e)}")
 
 
+@router.post("/{session_id}/heart-rate-batch/{batch_index}")
+async def upload_heart_rate_batch(
+    session_id: str,
+    batch_index: int,
+    batch_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Upload a batch of heart rate readings to the time_series subcollection
+    Used for live heart rate streaming during workouts
+    """
+    db = get_firestore_client()
+    session_ref = db.collection("workout_sessions").document(session_id)
+    session_doc = session_ref.get()
+
+    if not session_doc.exists:
+        raise HTTPException(status_code=404, detail="Workout session not found")
+
+    session_data = session_doc.to_dict()
+    if session_data["user_id"] != current_user["uid"]:
+        raise HTTPException(status_code=403, detail="Not authorized to update this session")
+
+    try:
+        # Save batch to time_series subcollection
+        time_series_ref = session_ref.collection("time_series")
+        doc_id = f"heart_rate_{batch_index}"
+
+        # Ensure data is in the correct format
+        if "data" not in batch_data:
+            raise HTTPException(status_code=400, detail="Batch data must contain 'data' field")
+
+        time_series_ref.document(doc_id).set({"data": batch_data["data"]})
+
+        return {
+            "message": "Heart rate batch uploaded successfully",
+            "batch_index": batch_index,
+            "readings_count": len(batch_data["data"])
+        }
+
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error uploading heart rate batch: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Error uploading heart rate data: {str(e)}")
+
+
 @router.get("/exercise-history/{exercise_version_id}")
 async def get_exercise_history(
     exercise_version_id: str,
