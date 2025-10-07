@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Alert, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel, Grid, Card, CardContent, CardActions, Chip, Checkbox, FormControlLabel, Autocomplete } from '@mui/material'
 import { Add, Delete, PlayArrow, Edit } from '@mui/icons-material'
@@ -8,6 +8,7 @@ import { useExercises } from '../contexts/ExerciseContext'
 const WorkoutPlansPage = () => {
   const navigate = useNavigate()
   const { exercises, exerciseVersions, refreshExercises } = useExercises()
+  const editSectionRef = useRef(null)
   const [openDialog, setOpenDialog] = useState(false)
   const [planName, setPlanName] = useState('')
   const [planDescription, setPlanDescription] = useState('')
@@ -144,6 +145,11 @@ const WorkoutPlansPage = () => {
 
     // Fetch exercise history
     await fetchExerciseHistory(exercise.exercise_version_id)
+
+    // Scroll to edit section
+    setTimeout(() => {
+      editSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
   }
 
   const handleAddExercise = async () => {
@@ -378,7 +384,7 @@ const WorkoutPlansPage = () => {
             Exercises
           </Typography>
 
-          <Box sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+          <Box ref={editSectionRef} sx={{ mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
             {editingExerciseIndex !== null && (
               <Alert severity="info" sx={{ mb: 2 }}>
                 Editing exercise - update the values below and click "Update Exercise"
