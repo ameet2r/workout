@@ -18,9 +18,10 @@ import {
   Card,
   CardContent,
   Autocomplete,
-  IconButton
+  IconButton,
+  InputAdornment
 } from '@mui/material'
-import { Add, Edit } from '@mui/icons-material'
+import { Add, Edit, Search } from '@mui/icons-material'
 import { authenticatedGet, authenticatedPost, authenticatedPatch } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
 import { getMuscleGroupOptions } from '../data/muscleGroups'
@@ -32,6 +33,7 @@ const ExerciseLibraryPage = () => {
   const { exercises, refreshExercises } = useExercises()
   const [open, setOpen] = useState(false)
   const [editingExercise, setEditingExercise] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     muscle_groups: [],
@@ -102,6 +104,19 @@ const ExerciseLibraryPage = () => {
     }
   }
 
+  // Filter exercises based on search query
+  const filteredExercises = exercises.filter((exercise) => {
+    if (!searchQuery) return true
+
+    const query = searchQuery.toLowerCase()
+    const nameMatch = exercise.name.toLowerCase().includes(query)
+    const muscleMatch = exercise.muscle_groups.some(mg => mg.toLowerCase().includes(query))
+    const equipmentMatch = exercise.equipment?.toLowerCase().includes(query)
+    const descriptionMatch = exercise.description?.toLowerCase().includes(query)
+
+    return nameMatch || muscleMatch || equipmentMatch || descriptionMatch
+  })
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -111,15 +126,36 @@ const ExerciseLibraryPage = () => {
         </Button>
       </Box>
 
+      <TextField
+        fullWidth
+        placeholder="Search exercises by name, muscle group, equipment, or description..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        sx={{ mb: 3 }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <Search />
+            </InputAdornment>
+          )
+        }}
+      />
+
       {exercises.length === 0 ? (
         <Paper sx={{ p: 3 }}>
           <Typography color="text.secondary">
             No exercises in your library yet. Add exercises to get started!
           </Typography>
         </Paper>
+      ) : filteredExercises.length === 0 ? (
+        <Paper sx={{ p: 3 }}>
+          <Typography color="text.secondary">
+            No exercises match your search criteria.
+          </Typography>
+        </Paper>
       ) : (
         <Grid container spacing={2}>
-          {exercises.map((exercise) => (
+          {filteredExercises.map((exercise) => (
             <Grid item xs={12} sm={6} md={4} key={exercise.id}>
               <Card>
                 <CardContent>
