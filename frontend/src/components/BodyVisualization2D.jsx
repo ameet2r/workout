@@ -42,6 +42,19 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
     return totalFreq
   }
 
+  // Helper to get frequency with fallback for alternative names
+  const getFrequencyWithFallback = (primaryName, ...alternativeNames) => {
+    if (frequencyMap[primaryName]) {
+      return frequencyMap[primaryName]
+    }
+    for (const altName of alternativeNames) {
+      if (frequencyMap[altName]) {
+        return frequencyMap[altName]
+      }
+    }
+    return 0
+  }
+
   return (
     <Box>
       {/* Simple grid-based body visualization */}
@@ -94,7 +107,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 50,
-              backgroundColor: getColor(getBodyPartFrequency({ muscles: ['Back', 'Lats', 'Trapezius'] })),
+              backgroundColor: getColor(getBodyPartFrequency({ muscles: ['Back', 'Lats', 'Traps', 'Back - Lats', 'Back - Traps', 'Back - Upper Back', 'Back - Lower Back'] })),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -103,7 +116,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Back {getBodyPartFrequency({ muscles: ['Back', 'Lats', 'Trapezius'] }) ? `(${getBodyPartFrequency({ muscles: ['Back', 'Lats', 'Trapezius'] })})` : ''}
+              Back {getBodyPartFrequency({ muscles: ['Back', 'Lats', 'Traps', 'Back - Lats', 'Back - Traps', 'Back - Upper Back', 'Back - Lower Back'] }) ? `(${getBodyPartFrequency({ muscles: ['Back', 'Lats', 'Traps', 'Back - Lats', 'Back - Traps', 'Back - Upper Back', 'Back - Lower Back'] })})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -113,7 +126,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 45,
-              backgroundColor: getColor(frequencyMap['Biceps']),
+              backgroundColor: getColor(getFrequencyWithFallback('Biceps', 'Arms - Biceps')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -122,7 +135,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Biceps {frequencyMap['Biceps'] ? `(${frequencyMap['Biceps']})` : ''}
+              Biceps {getFrequencyWithFallback('Biceps', 'Arms - Biceps') ? `(${getFrequencyWithFallback('Biceps', 'Arms - Biceps')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -130,7 +143,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 45,
-              backgroundColor: getColor(frequencyMap['Triceps']),
+              backgroundColor: getColor(getFrequencyWithFallback('Triceps', 'Arms - Triceps')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -139,7 +152,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Triceps {frequencyMap['Triceps'] ? `(${frequencyMap['Triceps']})` : ''}
+              Triceps {getFrequencyWithFallback('Triceps', 'Arms - Triceps') ? `(${getFrequencyWithFallback('Triceps', 'Arms - Triceps')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -147,7 +160,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 45,
-              backgroundColor: getColor(frequencyMap['Forearms']),
+              backgroundColor: getColor(getFrequencyWithFallback('Forearms', 'Arms - Forearms')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -156,7 +169,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Forearms {frequencyMap['Forearms'] ? `(${frequencyMap['Forearms']})` : ''}
+              Forearms {getFrequencyWithFallback('Forearms', 'Arms - Forearms') ? `(${getFrequencyWithFallback('Forearms', 'Arms - Forearms')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -171,7 +184,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 45,
-              backgroundColor: getColor(frequencyMap['Abs']),
+              backgroundColor: getColor(getFrequencyWithFallback('Abs', 'Core - Abs')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -180,7 +193,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Abs {frequencyMap['Abs'] ? `(${frequencyMap['Abs']})` : ''}
+              Abs {getFrequencyWithFallback('Abs', 'Core - Abs') ? `(${getFrequencyWithFallback('Abs', 'Core - Abs')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -188,7 +201,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 45,
-              backgroundColor: getColor(frequencyMap['Obliques']),
+              backgroundColor: getColor(getFrequencyWithFallback('Obliques', 'Core - Obliques')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -197,7 +210,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Obliques {frequencyMap['Obliques'] ? `(${frequencyMap['Obliques']})` : ''}
+              Obliques {getFrequencyWithFallback('Obliques', 'Core - Obliques') ? `(${getFrequencyWithFallback('Obliques', 'Core - Obliques')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -205,7 +218,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 40,
-              backgroundColor: getColor(frequencyMap['Lower Back']),
+              backgroundColor: getColor(getFrequencyWithFallback('Lower Back', 'Back - Lower Back')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -214,7 +227,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Lower Back {frequencyMap['Lower Back'] ? `(${frequencyMap['Lower Back']})` : ''}
+              Lower Back {getFrequencyWithFallback('Lower Back', 'Back - Lower Back') ? `(${getFrequencyWithFallback('Lower Back', 'Back - Lower Back')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -229,7 +242,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 45,
-              backgroundColor: getColor(frequencyMap['Glutes']),
+              backgroundColor: getColor(getFrequencyWithFallback('Glutes', 'Legs - Glutes')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -238,7 +251,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Glutes {frequencyMap['Glutes'] ? `(${frequencyMap['Glutes']})` : ''}
+              Glutes {getFrequencyWithFallback('Glutes', 'Legs - Glutes') ? `(${getFrequencyWithFallback('Glutes', 'Legs - Glutes')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -246,7 +259,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 45,
-              backgroundColor: getColor(frequencyMap['Hip Flexors']),
+              backgroundColor: getColor(getFrequencyWithFallback('Hip Flexors', 'Legs - Hip Flexors')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -255,7 +268,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Hip Flexors {frequencyMap['Hip Flexors'] ? `(${frequencyMap['Hip Flexors']})` : ''}
+              Hip Flexors {getFrequencyWithFallback('Hip Flexors', 'Legs - Hip Flexors') ? `(${getFrequencyWithFallback('Hip Flexors', 'Legs - Hip Flexors')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -263,7 +276,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 50,
-              backgroundColor: getColor(frequencyMap['Quadriceps']),
+              backgroundColor: getColor(getFrequencyWithFallback('Quadriceps', 'Quads', 'Legs - Quads')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -272,7 +285,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Quads {frequencyMap['Quadriceps'] ? `(${frequencyMap['Quadriceps']})` : ''}
+              Quads {getFrequencyWithFallback('Quadriceps', 'Quads', 'Legs - Quads') ? `(${getFrequencyWithFallback('Quadriceps', 'Quads', 'Legs - Quads')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -280,7 +293,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 50,
-              backgroundColor: getColor(frequencyMap['Hamstrings']),
+              backgroundColor: getColor(getFrequencyWithFallback('Hamstrings', 'Legs - Hamstrings')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -289,7 +302,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Hamstrings {frequencyMap['Hamstrings'] ? `(${frequencyMap['Hamstrings']})` : ''}
+              Hamstrings {getFrequencyWithFallback('Hamstrings', 'Legs - Hamstrings') ? `(${getFrequencyWithFallback('Hamstrings', 'Legs - Hamstrings')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -297,7 +310,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 40,
-              backgroundColor: getColor(frequencyMap['Adductors']),
+              backgroundColor: getColor(getFrequencyWithFallback('Adductors', 'Hip Adductors', 'Legs - Hip Adductors')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -306,7 +319,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Adductors {frequencyMap['Adductors'] ? `(${frequencyMap['Adductors']})` : ''}
+              Adductors {getFrequencyWithFallback('Adductors', 'Hip Adductors', 'Legs - Hip Adductors') ? `(${getFrequencyWithFallback('Adductors', 'Hip Adductors', 'Legs - Hip Adductors')})` : ''}
             </Typography>
           </Box>
         </Grid>
@@ -314,7 +327,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
           <Box
             sx={{
               height: 40,
-              backgroundColor: getColor(frequencyMap['Abductors']),
+              backgroundColor: getColor(getFrequencyWithFallback('Abductors', 'Hip Abductors', 'Legs - Hip Abductors')),
               borderRadius: 1,
               display: 'flex',
               alignItems: 'center',
@@ -323,7 +336,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             }}
           >
             <Typography variant="body2">
-              Abductors {frequencyMap['Abductors'] ? `(${frequencyMap['Abductors']})` : ''}
+              Abductors {getFrequencyWithFallback('Abductors', 'Hip Abductors', 'Legs - Hip Abductors') ? `(${getFrequencyWithFallback('Abductors', 'Hip Abductors', 'Legs - Hip Abductors')})` : ''}
             </Typography>
           </Box>
         </Grid>
