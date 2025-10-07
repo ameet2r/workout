@@ -97,23 +97,36 @@ async def get_workout_session(
                 If not provided, fetches all fields.
     """
     db = get_firestore_client()
-    session_ref = db.collection("workout_sessions").document(session_id)
 
-    # If specific fields requested, use select() to reduce bandwidth
+    # If specific fields requested, use Query.select() to reduce bandwidth from Firestore
     if fields:
         field_list = [f.strip() for f in fields.split(",")]
-        # Always include user_id for authorization check
-        if "user_id" not in field_list:
-            field_list.append("user_id")
-        session_doc = session_ref.select(field_list).get()
+        # Always include required fields for authorization, response validation, and UI display
+        required_fields = ["user_id", "start_time", "end_time", "name", "workout_plan_id", "exercises"]
+        for required_field in required_fields:
+            if required_field not in field_list:
+                field_list.append(required_field)
+
+        # Use query with document reference filter to enable select()
+        doc_ref = db.collection("workout_sessions").document(session_id)
+        query = db.collection("workout_sessions").where("__name__", "==", doc_ref).select(field_list)
+        docs = list(query.stream())
+
+        if not docs:
+            raise HTTPException(status_code=404, detail="Workout session not found")
+
+        session_data = docs[0].to_dict()
     else:
-        # Fetch all fields (default behavior for backward compatibility)
+        # Fetch all fields using DocumentReference (default behavior)
+        session_ref = db.collection("workout_sessions").document(session_id)
         session_doc = session_ref.get()
 
-    if not session_doc.exists:
-        raise HTTPException(status_code=404, detail="Workout session not found")
+        if not session_doc.exists:
+            raise HTTPException(status_code=404, detail="Workout session not found")
 
-    session_data = session_doc.to_dict()
+        session_data = session_doc.to_dict()
+
+    # Verify authorization
     if session_data["user_id"] != current_user["uid"]:
         raise HTTPException(status_code=403, detail="Not authorized to view this session")
 
