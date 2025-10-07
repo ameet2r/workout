@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -23,7 +23,7 @@ import {
   Select,
   MenuItem
 } from '@mui/material'
-import { Add, Delete, Check, Close } from '@mui/icons-material'
+import { Add, Delete, Check, Close, PlayArrow, Stop, Refresh } from '@mui/icons-material'
 import { authenticatedGet, authenticatedPatch, authenticatedPost, authenticatedDelete } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
 
@@ -44,6 +44,10 @@ const ActiveWorkoutPage = () => {
   const [openCancelDialog, setOpenCancelDialog] = useState(false)
   const [oneRmMode, setOneRmMode] = useState(false)
   const [exerciseHistory, setExerciseHistory] = useState({ sessions: [], estimated_1rm: null, actual_1rm: null })
+  const [activeTimerIndex, setActiveTimerIndex] = useState(null)
+  const [timeRemaining, setTimeRemaining] = useState(null)
+  const timerIntervalRef = useRef(null)
+  const audioRef = useRef(null)
 
   useEffect(() => {
     fetchWorkoutData()
@@ -241,7 +245,95 @@ const ActiveWorkoutPage = () => {
     setCurrentReps('')
     setCurrentWeight('')
     setCurrentRpe('')
+    // Stop any active timer when changing exercise
+    handleStopTimer()
   }
+
+  // Timer management functions
+  const handleStartTimer = (timerIndex, duration) => {
+    // Stop any existing timer
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+    }
+
+    setActiveTimerIndex(timerIndex)
+    setTimeRemaining(duration)
+
+    timerIntervalRef.current = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          // Timer complete
+          clearInterval(timerIntervalRef.current)
+          timerIntervalRef.current = null
+          setActiveTimerIndex(null)
+          playNotificationSound()
+          showNotification()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  const handleStopTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+      timerIntervalRef.current = null
+    }
+    setActiveTimerIndex(null)
+    setTimeRemaining(null)
+  }
+
+  const handleRestartTimer = (timerIndex, duration) => {
+    handleStartTimer(timerIndex, duration)
+  }
+
+  const playNotificationSound = () => {
+    // Create a simple beep sound using Web Audio API
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+
+    oscillator.frequency.value = 800
+    oscillator.type = 'sine'
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
+
+    oscillator.start(audioContext.currentTime)
+    oscillator.stop(audioContext.currentTime + 0.5)
+  }
+
+  const showNotification = () => {
+    // Try to show browser notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Timer Complete!', {
+        body: 'Your exercise timer has finished.',
+        icon: '/favicon.ico'
+      })
+    } else if ('Notification' in window && Notification.permission !== 'denied') {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          new Notification('Timer Complete!', {
+            body: 'Your exercise timer has finished.',
+            icon: '/favicon.ico'
+          })
+        }
+      })
+    }
+  }
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+      }
+    }
+  }, [])
 
   const formatTimerDisplay = (duration, type) => {
     if (!duration) return ''
@@ -255,6 +347,12 @@ const ActiveWorkoutPage = () => {
     if (seconds > 0 || !timeStr) timeStr += `${timeStr ? ' ' : ''}${seconds}s`
 
     return type === 'total' ? `${timeStr} total` : `${timeStr} per set`
+  }
+
+  const formatTimeRemaining = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
   if (loading) {
@@ -394,16 +492,73 @@ const ActiveWorkoutPage = () => {
                 )}
 
                 {currentExercise.timers && currentExercise.timers.length > 0 && (
-                  <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {currentExercise.timers.map((timer, idx) => (
-                      <Chip
-                        key={idx}
-                        label={formatTimerDisplay(timer.duration, timer.type)}
-                        size="small"
-                        color="info"
-                        variant="outlined"
-                      />
-                    ))}
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Timers
+                    </Typography>
+                    {currentExercise.timers.map((timer, idx) => {
+                      const isActive = activeTimerIndex === idx
+                      return (
+                        <Paper
+                          key={idx}
+                          sx={{
+                            p: 2,
+                            mb: 1,
+                            bgcolor: isActive ? 'info.lighter' : 'background.default',
+                            border: isActive ? 2 : 1,
+                            borderColor: isActive ? 'info.main' : 'divider'
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                            <Typography variant="body2">
+                              {formatTimerDisplay(timer.duration, timer.type)}
+                            </Typography>
+                            {isActive && (
+                              <Typography variant="h6" color="info.main" sx={{ fontWeight: 'bold', fontFamily: 'monospace' }}>
+                                {formatTimeRemaining(timeRemaining)}
+                              </Typography>
+                            )}
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            {!isActive ? (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="primary"
+                                startIcon={<PlayArrow />}
+                                onClick={() => handleStartTimer(idx, timer.duration)}
+                                fullWidth
+                              >
+                                Start
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="error"
+                                  startIcon={<Stop />}
+                                  onClick={handleStopTimer}
+                                  fullWidth
+                                >
+                                  Stop
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  startIcon={<Refresh />}
+                                  onClick={() => handleRestartTimer(idx, timer.duration)}
+                                  fullWidth
+                                >
+                                  Restart
+                                </Button>
+                              </>
+                            )}
+                          </Box>
+                        </Paper>
+                      )
+                    })}
                   </Box>
                 )}
 
