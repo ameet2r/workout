@@ -51,9 +51,9 @@ const WorkoutDetailPage = () => {
   const session = getWorkoutSession(sessionId)
   const workoutPlan = session?.workout_plan_id ? workoutPlans[session.workout_plan_id] : null
 
-  // Fetch full session with garmin_data if not already loaded
+  // Fetch missing session data (garmin_data, notes) if not already loaded
   useEffect(() => {
-    const fetchFullSession = async () => {
+    const fetchMissingData = async () => {
       // Only fetch if:
       // 1. Session exists in context (so we know it's a valid session)
       // 2. Session doesn't have garmin_data yet (it was excluded from list view)
@@ -61,18 +61,22 @@ const WorkoutDetailPage = () => {
       if (session && !session.garmin_data && session.end_time && !fetchingFullSession) {
         try {
           setFetchingFullSession(true)
-          const fullSession = await authenticatedGet(`/api/workout-sessions/${sessionId}`)
-          // Update context with full session data
-          updateWorkoutSession(sessionId, fullSession)
+          // Only fetch the fields we're missing (garmin_data, notes)
+          // This reduces bandwidth by not re-fetching data we already have
+          const partialSession = await authenticatedGet(
+            `/api/workout-sessions/${sessionId}?fields=garmin_data,notes`
+          )
+          // Update context with the missing data
+          updateWorkoutSession(sessionId, partialSession)
         } catch (err) {
-          console.error('Error fetching full session:', err)
+          console.error('Error fetching session data:', err)
         } finally {
           setFetchingFullSession(false)
         }
       }
     }
 
-    fetchFullSession()
+    fetchMissingData()
   }, [sessionId, session, fetchingFullSession, updateWorkoutSession])
 
   const handleGarminUploadSuccess = (updatedSession) => {

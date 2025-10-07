@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
-from typing import List
+from typing import List, Optional
 from app.core.auth import get_current_user
 from app.core.firebase import get_firestore_client
 from app.schemas.workout_session import WorkoutSession, WorkoutSessionCreate, WorkoutSessionUpdate
@@ -43,12 +43,23 @@ async def list_workout_sessions(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    List workout sessions for the current user
+    List workout sessions for the current user (excludes garmin_data and notes for performance)
     """
     db = get_firestore_client()
+
+    # Only fetch fields needed for list view to reduce bandwidth
+    # Excludes: garmin_data, notes (only needed in detail view)
     sessions_ref = db.collection("workout_sessions").where(
         "user_id", "==", current_user["uid"]
-    ).limit(limit)
+    ).select([
+        "user_id",
+        "start_time",
+        "end_time",
+        "name",
+        "workout_plan_id",
+        "exercises"
+    ]).limit(limit)
+
     sessions = sessions_ref.stream()
 
     result = []
@@ -59,10 +70,6 @@ async def list_workout_sessions(
             session_data["start_time"] = session_data["start_time"].isoformat() if hasattr(session_data["start_time"], "isoformat") else session_data["start_time"]
         if "end_time" in session_data and session_data["end_time"]:
             session_data["end_time"] = session_data["end_time"].isoformat() if hasattr(session_data["end_time"], "isoformat") else session_data["end_time"]
-
-        # Exclude garmin_data from list view for better performance
-        # (it will be loaded on-demand when viewing workout details)
-        session_data.pop('garmin_data', None)
 
         result.append({
             "id": doc.id,
@@ -76,13 +83,32 @@ async def list_workout_sessions(
 
 
 @router.get("/{session_id}", response_model=WorkoutSession)
-async def get_workout_session(session_id: str, current_user: dict = Depends(get_current_user)):
+async def get_workout_session(
+    session_id: str,
+    fields: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Get workout session by ID
+
+    Args:
+        session_id: ID of the workout session
+        fields: Optional comma-separated list of fields to fetch (e.g., "garmin_data,notes")
+                If not provided, fetches all fields.
     """
     db = get_firestore_client()
     session_ref = db.collection("workout_sessions").document(session_id)
-    session_doc = session_ref.get()
+
+    # If specific fields requested, use select() to reduce bandwidth
+    if fields:
+        field_list = [f.strip() for f in fields.split(",")]
+        # Always include user_id for authorization check
+        if "user_id" not in field_list:
+            field_list.append("user_id")
+        session_doc = session_ref.select(field_list).get()
+    else:
+        # Fetch all fields (default behavior for backward compatibility)
+        session_doc = session_ref.get()
 
     if not session_doc.exists:
         raise HTTPException(status_code=404, detail="Workout session not found")
