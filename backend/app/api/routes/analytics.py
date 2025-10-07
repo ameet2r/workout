@@ -20,10 +20,10 @@ async def get_exercise_progress(
     """
     db = get_firestore_client()
 
-    # Build query
+    # Build query - only select fields we need to reduce bandwidth
     sessions_query = db.collection("workout_sessions").where(
         "user_id", "==", current_user["uid"]
-    )
+    ).select(["user_id", "start_time", "exercises"])
 
     # Add date filters if provided
     if start_date:
@@ -81,9 +81,10 @@ async def get_personal_records(
     """
     db = get_firestore_client()
 
+    # Only select fields we need to reduce bandwidth
     sessions_query = db.collection("workout_sessions").where(
         "user_id", "==", current_user["uid"]
-    ).order_by("start_time")
+    ).select(["user_id", "start_time", "exercises"]).order_by("start_time")
 
     sessions = sessions_query.stream()
 
@@ -138,11 +139,12 @@ async def get_workout_summary(
 
     start_date = datetime.now() - timedelta(days=days)
 
+    # Only select fields we need to reduce bandwidth
     sessions_query = db.collection("workout_sessions").where(
         "user_id", "==", current_user["uid"]
     ).where(
         "start_time", ">=", start_date
-    ).order_by("start_time")
+    ).select(["user_id", "start_time", "end_time", "exercises"]).order_by("start_time")
 
     sessions = sessions_query.stream()
 

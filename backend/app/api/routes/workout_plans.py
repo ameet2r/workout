@@ -38,7 +38,10 @@ async def list_workout_plans(current_user: dict = Depends(get_current_user)):
     List all workout plans for the current user
     """
     db = get_firestore_client()
-    plans_ref = db.collection("workout_plans").where("user_id", "==", current_user["uid"])
+    # Exclude notes from list view to reduce bandwidth
+    plans_ref = db.collection("workout_plans").where(
+        "user_id", "==", current_user["uid"]
+    ).select(["user_id", "name", "exercises", "created_at", "updated_at"])
     plans = plans_ref.stream()
 
     return [
