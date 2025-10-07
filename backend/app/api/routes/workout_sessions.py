@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from typing import List
 from app.core.auth import get_current_user
 from app.core.firebase import get_firestore_client
 from app.schemas.workout_session import WorkoutSession, WorkoutSessionCreate, WorkoutSessionUpdate
+from app.utils.garmin_parser import parse_garmin_file, batch_time_series_data, batch_gps_data
 from datetime import datetime
 
 router = APIRouter()
@@ -14,14 +15,16 @@ async def create_workout_session(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Start a new workout session
+    Start a new workout session (or create a past workout with custom start_time)
     """
     db = get_firestore_client()
     session_ref = db.collection("workout_sessions").document()
 
     session_data = session.model_dump()
     session_data["user_id"] = current_user["uid"]
-    start_time = datetime.now()
+
+    # Use provided start_time or default to now
+    start_time = session.start_time if session.start_time else datetime.now()
     session_data["start_time"] = start_time
     session_data["end_time"] = None
 
@@ -193,6 +196,219 @@ async def delete_workout_session(
     session_ref.delete()
 
     return {"message": "Workout session deleted successfully"}
+
+
+@router.post("/{session_id}/upload-garmin")
+async def upload_garmin_file(
+    session_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Upload and parse a Garmin file (TCX, GPX, or ZIP) for a workout session
+    """
+    # Validate file size (10 MB limit)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+    file_content = await file.read()
+
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 10 MB")
+
+    # Validate file type
+    allowed_extensions = ['.fit', '.tcx', '.gpx', '.zip']
+    if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Please upload a .fit, .tcx, .gpx, or .zip file"
+        )
+
+    # Get session and verify ownership
+    db = get_firestore_client()
+    session_ref = db.collection("workout_sessions").document(session_id)
+    session_doc = session_ref.get()
+
+    if not session_doc.exists:
+        raise HTTPException(status_code=404, detail="Workout session not found")
+
+    session_data = session_doc.to_dict()
+    if session_data["user_id"] != current_user["uid"]:
+        raise HTTPException(status_code=403, detail="Not authorized to update this session")
+
+    try:
+        # Parse the file
+        parsed_data = parse_garmin_file(file.filename, file_content)
+
+        # Update session with summary data
+        garmin_data = parsed_data['summary']
+        update_data = {"garmin_data": garmin_data}
+
+        # Always use timestamps from Garmin file if available
+        if parsed_data.get('start_time'):
+            start_time = parsed_data['start_time']
+            # Ensure start_time is a datetime object
+            if isinstance(start_time, str):
+                from dateutil import parser as date_parser
+                start_time = date_parser.parse(start_time)
+
+            update_data['start_time'] = start_time
+
+            # Calculate end_time from duration
+            if garmin_data.get('duration'):
+                from datetime import timedelta
+                end = start_time + timedelta(seconds=garmin_data['duration'])
+                update_data['end_time'] = end
+
+        session_ref.update(update_data)
+
+        # Store time-series data in subcollections
+        time_series_ref = session_ref.collection("time_series")
+
+        # Heart rate data
+        if parsed_data['time_series']['heart_rate']:
+            hr_batches = batch_time_series_data(parsed_data['time_series']['heart_rate'])
+            for idx, batch in enumerate(hr_batches):
+                time_series_ref.document(f"heart_rate_{idx}").set({"data": batch})
+
+        # GPS data
+        if parsed_data['time_series']['gps']:
+            gps_batches = batch_gps_data(parsed_data['time_series']['gps'])
+            for idx, batch in enumerate(gps_batches):
+                time_series_ref.document(f"gps_{idx}").set({"data": batch})
+
+        # Temperature data
+        if parsed_data['time_series']['temperature']:
+            temp_batches = batch_time_series_data(parsed_data['time_series']['temperature'])
+            for idx, batch in enumerate(temp_batches):
+                time_series_ref.document(f"temperature_{idx}").set({"data": batch})
+
+        # Cadence data
+        if parsed_data['time_series']['cadence']:
+            cad_batches = batch_time_series_data(parsed_data['time_series']['cadence'])
+            for idx, batch in enumerate(cad_batches):
+                time_series_ref.document(f"cadence_{idx}").set({"data": batch})
+
+        # Power data
+        if parsed_data['time_series']['power']:
+            power_batches = batch_time_series_data(parsed_data['time_series']['power'])
+            for idx, batch in enumerate(power_batches):
+                time_series_ref.document(f"power_{idx}").set({"data": batch})
+
+        # Altitude data
+        if parsed_data['time_series']['altitude']:
+            altitude_batches = batch_time_series_data(parsed_data['time_series']['altitude'])
+            for idx, batch in enumerate(altitude_batches):
+                time_series_ref.document(f"altitude_{idx}").set({"data": batch})
+
+        return {
+            "message": "Garmin data uploaded successfully",
+            "summary": garmin_data,
+            "data_points": {
+                "heart_rate": len(parsed_data['time_series']['heart_rate']),
+                "gps": len(parsed_data['time_series']['gps']),
+                "temperature": len(parsed_data['time_series']['temperature']),
+                "cadence": len(parsed_data['time_series']['cadence']),
+                "power": len(parsed_data['time_series']['power']),
+                "altitude": len(parsed_data['time_series']['altitude'])
+            }
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Log the full error for debugging
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Error processing Garmin file: {error_details}")
+        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+
+@router.get("/{session_id}/time-series/{data_type}")
+async def get_time_series_data(
+    session_id: str,
+    data_type: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get time-series data for a workout session
+    Supported data_type: heart_rate, gps, temperature, cadence, power, altitude
+    """
+    if data_type not in ['heart_rate', 'gps', 'temperature', 'cadence', 'power', 'altitude']:
+        raise HTTPException(status_code=400, detail="Invalid data type")
+
+    db = get_firestore_client()
+    session_ref = db.collection("workout_sessions").document(session_id)
+    session_doc = session_ref.get()
+
+    if not session_doc.exists:
+        raise HTTPException(status_code=404, detail="Workout session not found")
+
+    session_data = session_doc.to_dict()
+    if session_data["user_id"] != current_user["uid"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view this session")
+
+    # Retrieve all batches for the data type
+    time_series_ref = session_ref.collection("time_series")
+
+    try:
+        # Get all documents in the time_series subcollection
+        docs = time_series_ref.stream()
+
+        all_data = []
+        for doc in docs:
+            # Filter by document ID prefix (e.g., "heart_rate_0", "heart_rate_1", etc.)
+            if doc.id.startswith(f"{data_type}_"):
+                doc_data = doc.to_dict()
+                if "data" in doc_data:
+                    all_data.extend(doc_data["data"])
+
+        return {
+            "data_type": data_type,
+            "data": all_data,
+            "count": len(all_data)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving time-series data: {str(e)}")
+
+
+@router.delete("/{session_id}/garmin-data")
+async def delete_garmin_data(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Delete all Garmin data (summary and time-series) from a workout session
+    """
+    db = get_firestore_client()
+    session_ref = db.collection("workout_sessions").document(session_id)
+    session_doc = session_ref.get()
+
+    if not session_doc.exists:
+        raise HTTPException(status_code=404, detail="Workout session not found")
+
+    session_data = session_doc.to_dict()
+    if session_data["user_id"] != current_user["uid"]:
+        raise HTTPException(status_code=403, detail="Not authorized to update this session")
+
+    try:
+        # Delete all time-series data from subcollection
+        time_series_ref = session_ref.collection("time_series")
+        docs = time_series_ref.stream()
+
+        deleted_count = 0
+        for doc in docs:
+            doc.reference.delete()
+            deleted_count += 1
+
+        # Remove garmin_data field from session document
+        session_ref.update({"garmin_data": None})
+
+        return {
+            "message": "Garmin data deleted successfully",
+            "time_series_documents_deleted": deleted_count
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting Garmin data: {str(e)}")
 
 
 @router.get("/exercise-history/{exercise_version_id}")

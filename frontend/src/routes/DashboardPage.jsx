@@ -111,7 +111,7 @@ const DashboardPage = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                         <Box>
                           <Typography variant="h6">
-                            {plan ? plan.name : 'Custom Workout'}
+                            {session.name || (plan ? plan.name : 'Custom Workout')}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
                             {formatDate(session.start_time)} at {formatTime(session.start_time)}

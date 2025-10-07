@@ -557,6 +557,19 @@ const ProgressPage = () => {
                       showMark: true
                     }]}
                     height={300}
+                    slotProps={{
+                      popper: {
+                        sx: {
+                          '& .MuiChartsTooltip-table': {
+                            backgroundColor: 'background.paper'
+                          }
+                        }
+                      }
+                    }}
+                    axisHighlight={{
+                      x: 'line',
+                      y: 'none'
+                    }}
                   />
                 </>
               ) : (
@@ -577,6 +590,19 @@ const ProgressPage = () => {
                     }]}
                     height={300}
                     sx={{ mb: 3 }}
+                    slotProps={{
+                      popper: {
+                        sx: {
+                          '& .MuiChartsTooltip-table': {
+                            backgroundColor: 'background.paper'
+                          }
+                        }
+                      }
+                    }}
+                    axisHighlight={{
+                      x: 'line',
+                      y: 'none'
+                    }}
                   />
 
                   <Divider sx={{ my: 3 }} />
@@ -597,6 +623,19 @@ const ProgressPage = () => {
                       color: '#f57c00'
                     }]}
                     height={300}
+                    slotProps={{
+                      popper: {
+                        sx: {
+                          '& .MuiChartsTooltip-table': {
+                            backgroundColor: 'background.paper'
+                          }
+                        }
+                      }
+                    }}
+                    axisHighlight={{
+                      x: 'line',
+                      y: 'none'
+                    }}
                   />
                 </>
               )}

@@ -18,18 +18,21 @@ import {
   DialogContentText,
   DialogActions
 } from '@mui/material'
-import { Visibility, Delete } from '@mui/icons-material'
+import { Visibility, Delete, Upload } from '@mui/icons-material'
 import { authenticatedDelete } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
 import { useHistory } from '../contexts/HistoryContext'
 import { formatDate, formatTime, calculateDuration, getTotalSets, getTotalVolume } from '../utils/workoutHelpers'
+import ImportGarminDialog from '../components/garmin/ImportGarminDialog'
 
 const HistoryPage = () => {
   const navigate = useNavigate()
   const { exercises, exerciseVersions } = useExercises()
-  const { workoutSessions, workoutPlans, loading, error, deleteWorkoutSession: removeFromContext } = useHistory()
+  const { workoutSessions, workoutPlans, loading, error, deleteWorkoutSession: removeFromContext, refreshHistory } = useHistory()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState(null)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const getExerciseVersionName = (versionId) => {
     const version = exerciseVersions.find(v => v.id === versionId)
@@ -51,6 +54,7 @@ const HistoryPage = () => {
   const handleDeleteConfirm = async () => {
     if (!sessionToDelete) return
 
+    setDeleting(true)
     try {
       await authenticatedDelete(`/api/workout-sessions/${sessionToDelete.id}`)
       removeFromContext(sessionToDelete.id)
@@ -60,7 +64,14 @@ const HistoryPage = () => {
       console.error('Error deleting workout session:', err)
       setDeleteDialogOpen(false)
       setSessionToDelete(null)
+    } finally {
+      setDeleting(false)
     }
+  }
+
+  const handleImportSuccess = async () => {
+    // Refresh the history to show the new workout
+    await refreshHistory()
   }
 
   if (loading) {
@@ -101,9 +112,18 @@ const HistoryPage = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Workout History
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">
+          Workout History
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<Upload />}
+          onClick={() => setImportDialogOpen(true)}
+        >
+          Import from Garmin
+        </Button>
+      </Box>
 
       <Grid container spacing={2}>
         {workoutSessions.map((session) => {
@@ -125,7 +145,7 @@ const HistoryPage = () => {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Box>
                       <Typography variant="h6">
-                        {plan ? plan.name : 'Custom Workout'}
+                        {session.name || (plan ? plan.name : 'Custom Workout')}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {formatDate(session.start_time)} at {formatTime(session.start_time)}
@@ -207,7 +227,7 @@ const HistoryPage = () => {
 
       <Dialog
         open={deleteDialogOpen}
-        onClose={handleDeleteCancel}
+        onClose={() => !deleting && handleDeleteCancel()}
       >
         <DialogTitle>Delete Workout Session</DialogTitle>
         <DialogContent>
@@ -216,12 +236,24 @@ const HistoryPage = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteCancel}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
-            Delete
+          <Button onClick={handleDeleteCancel} disabled={deleting}>Cancel</Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ImportGarminDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onSuccess={handleImportSuccess}
+      />
     </Box>
   )
 }
