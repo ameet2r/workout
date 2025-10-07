@@ -134,6 +134,20 @@ const ActiveWorkoutPage = () => {
     return `${exercise?.name || 'Unknown'}${version.version_name !== 'Default' ? ` - ${version.version_name}` : ''}`
   }
 
+  const getExerciseDescription = (versionId) => {
+    const version = exerciseVersions.find(v => v.id === versionId)
+    if (!version) return null
+    const exercise = exercises.find(e => e.id === version.exercise_id)
+    return exercise?.description || null
+  }
+
+  const getExerciseEquipment = (versionId) => {
+    const version = exerciseVersions.find(v => v.id === versionId)
+    if (!version) return null
+    const exercise = exercises.find(e => e.id === version.exercise_id)
+    return exercise?.equipment || null
+  }
+
   const handleAddSet = async () => {
     if (!currentReps) return
 
@@ -334,6 +348,17 @@ const ActiveWorkoutPage = () => {
                   {getExerciseVersionName(currentExercise.exercise_version_id)}
                 </Typography>
 
+                {getExerciseEquipment(currentExercise.exercise_version_id) && (
+                  <Box sx={{ mb: 1 }}>
+                    <Chip
+                      label={`Equipment: ${getExerciseEquipment(currentExercise.exercise_version_id)}`}
+                      size="small"
+                      variant="outlined"
+                      color="default"
+                    />
+                  </Box>
+                )}
+
                 {currentExercise.plannedSets && (
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Target: {currentExercise.plannedSets} sets × {currentExercise.plannedReps || '?'} reps
@@ -346,9 +371,23 @@ const ActiveWorkoutPage = () => {
                   </Typography>
                 )}
 
+                {getExerciseDescription(currentExercise.exercise_version_id) && (
+                  <Paper sx={{ p: 2, mt: 2, bgcolor: 'grey.50', borderLeft: 3, borderColor: 'primary.main' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                      Exercise Description
+                    </Typography>
+                    <Typography variant="body2">
+                      {getExerciseDescription(currentExercise.exercise_version_id)}
+                    </Typography>
+                  </Paper>
+                )}
+
                 {currentExercise.instruction && (
-                  <Paper sx={{ p: 2, mt: 2, bgcolor: 'background.default' }}>
-                    <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                  <Paper sx={{ p: 2, mt: 2, bgcolor: 'info.lighter', borderLeft: 3, borderColor: 'info.main' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                      Workout Plan Notes
+                    </Typography>
+                    <Typography variant="body2">
                       {currentExercise.instruction}
                     </Typography>
                   </Paper>
