@@ -496,16 +496,22 @@ async def get_time_series_data(
     time_series_ref = session_ref.collection("time_series")
 
     try:
-        # Get all documents in the time_series subcollection
-        docs = time_series_ref.stream()
+        # Use range query to only fetch documents with IDs starting with data_type prefix
+        prefix_start = time_series_ref.document(f"{data_type}_")
+        # Use high unicode character to create upper bound for the range
+        prefix_end = time_series_ref.document(f"{data_type}_\uf8ff")
+
+        docs = time_series_ref.where(
+            "__name__", ">=", prefix_start
+        ).where(
+            "__name__", "<=", prefix_end
+        ).stream()
 
         all_data = []
         for doc in docs:
-            # Filter by document ID prefix (e.g., "heart_rate_0", "heart_rate_1", etc.)
-            if doc.id.startswith(f"{data_type}_"):
-                doc_data = doc.to_dict()
-                if "data" in doc_data:
-                    all_data.extend(doc_data["data"])
+            doc_data = doc.to_dict()
+            if "data" in doc_data:
+                all_data.extend(doc_data["data"])
 
         return {
             "data_type": data_type,
