@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -20,7 +20,7 @@ import {
   IconButton
 } from '@mui/material'
 import { ArrowBack, Delete, DeleteOutline, Edit, Check, Close } from '@mui/icons-material'
-import { authenticatedDelete } from '../utils/api'
+import { authenticatedDelete, authenticatedGet } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
 import { useHistory } from '../contexts/HistoryContext'
 import { formatDate, formatTime, calculateDuration, getTotalSets, getTotalVolume } from '../utils/workoutHelpers'
@@ -46,9 +46,34 @@ const WorkoutDetailPage = () => {
   const [garminDataKey, setGarminDataKey] = useState(0) // Key to force re-render of Garmin components
   const [isEditingName, setIsEditingName] = useState(false)
   const [editedName, setEditedName] = useState('')
+  const [fetchingFullSession, setFetchingFullSession] = useState(false)
 
   const session = getWorkoutSession(sessionId)
   const workoutPlan = session?.workout_plan_id ? workoutPlans[session.workout_plan_id] : null
+
+  // Fetch full session with garmin_data if not already loaded
+  useEffect(() => {
+    const fetchFullSession = async () => {
+      // Only fetch if:
+      // 1. Session exists in context (so we know it's a valid session)
+      // 2. Session doesn't have garmin_data yet (it was excluded from list view)
+      // 3. Session is completed (only completed sessions can have garmin data)
+      if (session && !session.garmin_data && session.end_time && !fetchingFullSession) {
+        try {
+          setFetchingFullSession(true)
+          const fullSession = await authenticatedGet(`/api/workout-sessions/${sessionId}`)
+          // Update context with full session data
+          updateWorkoutSession(sessionId, fullSession)
+        } catch (err) {
+          console.error('Error fetching full session:', err)
+        } finally {
+          setFetchingFullSession(false)
+        }
+      }
+    }
+
+    fetchFullSession()
+  }, [sessionId, session, fetchingFullSession, updateWorkoutSession])
 
   const handleGarminUploadSuccess = (updatedSession) => {
     // Update just this session in context instead of refetching all sessions

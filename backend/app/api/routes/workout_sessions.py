@@ -60,6 +60,10 @@ async def list_workout_sessions(
         if "end_time" in session_data and session_data["end_time"]:
             session_data["end_time"] = session_data["end_time"].isoformat() if hasattr(session_data["end_time"], "isoformat") else session_data["end_time"]
 
+        # Exclude garmin_data from list view for better performance
+        # (it will be loaded on-demand when viewing workout details)
+        session_data.pop('garmin_data', None)
+
         result.append({
             "id": doc.id,
             **session_data
