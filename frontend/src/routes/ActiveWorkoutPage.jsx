@@ -26,11 +26,13 @@ import {
 import { Add, Delete, Check, Close, PlayArrow, Stop, Refresh } from '@mui/icons-material'
 import { authenticatedGet, authenticatedPatch, authenticatedPost, authenticatedDelete } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
+import { useHistory } from '../contexts/HistoryContext'
 
 const ActiveWorkoutPage = () => {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const { exercises, exerciseVersions } = useExercises()
+  const { refreshHistory, deleteWorkoutSession } = useHistory()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [session, setSession] = useState(null)
@@ -229,6 +231,7 @@ const ActiveWorkoutPage = () => {
   const handleCompleteWorkout = async () => {
     try {
       await authenticatedPost(`/api/workout-sessions/${sessionId}/complete`, {})
+      await refreshHistory()
       setOpenCompleteDialog(false)
       navigate('/history')
     } catch (err) {
@@ -243,6 +246,7 @@ const ActiveWorkoutPage = () => {
   const handleConfirmCancelWorkout = async () => {
     try {
       await authenticatedDelete(`/api/workout-sessions/${sessionId}`)
+      deleteWorkoutSession(sessionId)
       setOpenCancelDialog(false)
       navigate('/plans')
     } catch (err) {

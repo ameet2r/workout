@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -12,114 +12,30 @@ import {
   Button,
   Grid,
   Chip,
-  Divider,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions
 } from '@mui/material'
-import { ExpandMore, Visibility, Delete } from '@mui/icons-material'
-import { authenticatedGet, authenticatedDelete } from '../utils/api'
+import { Visibility, Delete } from '@mui/icons-material'
+import { authenticatedDelete } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
+import { useHistory } from '../contexts/HistoryContext'
+import { formatDate, formatTime, calculateDuration, getTotalSets, getTotalVolume } from '../utils/workoutHelpers'
 
 const HistoryPage = () => {
   const navigate = useNavigate()
   const { exercises, exerciseVersions } = useExercises()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [workoutSessions, setWorkoutSessions] = useState([])
-  const [workoutPlans, setWorkoutPlans] = useState({})
+  const { workoutSessions, workoutPlans, loading, error, deleteWorkoutSession: removeFromContext } = useHistory()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState(null)
-
-  useEffect(() => {
-    fetchWorkoutHistory()
-  }, [])
-
-  const fetchWorkoutHistory = async () => {
-    try {
-      setLoading(true)
-      const [sessionsData, plansData] = await Promise.all([
-        authenticatedGet('/api/workout-sessions'),
-        authenticatedGet('/api/workout-plans')
-      ])
-
-      setWorkoutSessions(sessionsData)
-
-      // Convert plans array to object for easy lookup
-      const plansMap = {}
-      plansData.forEach(plan => {
-        plansMap[plan.id] = plan
-      })
-      setWorkoutPlans(plansMap)
-      setError(null)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const getExerciseVersionName = (versionId) => {
     const version = exerciseVersions.find(v => v.id === versionId)
     if (!version) return 'Unknown Exercise'
     const exercise = exercises.find(e => e.id === version.exercise_id)
     return `${exercise?.name || 'Unknown'}${version.version_name !== 'Default' ? ` - ${version.version_name}` : ''}`
-  }
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-  }
-
-  const formatTime = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit'
-    })
-  }
-
-  const calculateDuration = (startTime, endTime) => {
-    if (!endTime) return 'In Progress'
-
-    const start = new Date(startTime)
-    const end = new Date(endTime)
-    const durationMs = end - start
-    const minutes = Math.floor(durationMs / 60000)
-    const hours = Math.floor(minutes / 60)
-    const remainingMinutes = minutes % 60
-
-    if (hours > 0) {
-      return `${hours}h ${remainingMinutes}m`
-    }
-    return `${minutes}m`
-  }
-
-  const getTotalSets = (session) => {
-    if (!session.exercises) return 0
-    return session.exercises.reduce((total, ex) => total + (ex.sets?.length || 0), 0)
-  }
-
-  const getTotalVolume = (session) => {
-    if (!session.exercises) return 0
-    let volume = 0
-    session.exercises.forEach(ex => {
-      ex.sets?.forEach(set => {
-        if (set.weight) {
-          volume += set.weight * set.reps
-        }
-      })
-    })
-    return volume
   }
 
   const handleDeleteClick = (session) => {
@@ -137,13 +53,11 @@ const HistoryPage = () => {
 
     try {
       await authenticatedDelete(`/api/workout-sessions/${sessionToDelete.id}`)
-      setWorkoutSessions(prevSessions =>
-        prevSessions.filter(session => session.id !== sessionToDelete.id)
-      )
+      removeFromContext(sessionToDelete.id)
       setDeleteDialogOpen(false)
       setSessionToDelete(null)
     } catch (err) {
-      setError(err.message)
+      console.error('Error deleting workout session:', err)
       setDeleteDialogOpen(false)
       setSessionToDelete(null)
     }
@@ -198,7 +112,15 @@ const HistoryPage = () => {
 
           return (
             <Grid item xs={12} key={session.id}>
-              <Card>
+              <Card
+                sx={{
+                  cursor: 'pointer',
+                  '&:hover': {
+                    boxShadow: 3
+                  }
+                }}
+                onClick={() => navigate(`/history/${session.id}`)}
+              >
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Box>
@@ -216,8 +138,8 @@ const HistoryPage = () => {
                     />
                   </Box>
 
-                  <Grid container spacing={2} sx={{ mb: 2 }}>
-                    <Grid item xs={4}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={3}>
                       <Typography variant="caption" color="text.secondary" display="block">
                         Duration
                       </Typography>
@@ -225,7 +147,15 @@ const HistoryPage = () => {
                         {calculateDuration(session.start_time, session.end_time)}
                       </Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid item xs={3}>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        Exercises
+                      </Typography>
+                      <Typography variant="body1">
+                        {session.exercises?.length || 0}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={3}>
                       <Typography variant="caption" color="text.secondary" display="block">
                         Total Sets
                       </Typography>
@@ -233,7 +163,7 @@ const HistoryPage = () => {
                         {getTotalSets(session)}
                       </Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid item xs={3}>
                       <Typography variant="caption" color="text.secondary" display="block">
                         Volume
                       </Typography>
@@ -242,54 +172,6 @@ const HistoryPage = () => {
                       </Typography>
                     </Grid>
                   </Grid>
-
-                  {session.exercises && session.exercises.length > 0 && (
-                    <Accordion>
-                      <AccordionSummary expandIcon={<ExpandMore />}>
-                        <Typography variant="body2">
-                          View Exercise Details ({session.exercises.length} exercises)
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {session.exercises.map((exercise, index) => (
-                            <Paper key={index} sx={{ p: 2, bgcolor: 'background.default' }}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                {getExerciseVersionName(exercise.exercise_version_id)}
-                              </Typography>
-                              {exercise.sets && exercise.sets.length > 0 ? (
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                  {exercise.sets.map((set, setIndex) => (
-                                    <Typography key={setIndex} variant="body2" color="text.secondary">
-                                      Set {setIndex + 1}: {set.reps} reps
-                                      {set.weight && ` @ ${set.weight}lbs`}
-                                      {set.rpe && ` (RPE ${set.rpe})`}
-                                    </Typography>
-                                  ))}
-                                </Box>
-                              ) : (
-                                <Typography variant="body2" color="text.secondary">
-                                  No sets logged
-                                </Typography>
-                              )}
-                            </Paper>
-                          ))}
-                        </Box>
-                      </AccordionDetails>
-                    </Accordion>
-                  )}
-
-                  {session.notes && (
-                    <Box sx={{ mt: 2 }}>
-                      <Divider sx={{ mb: 1 }} />
-                      <Typography variant="caption" color="text.secondary">
-                        Notes:
-                      </Typography>
-                      <Typography variant="body2">
-                        {session.notes}
-                      </Typography>
-                    </Box>
-                  )}
                 </CardContent>
 
                 <CardActions>
@@ -297,7 +179,10 @@ const HistoryPage = () => {
                     <Button
                       size="small"
                       startIcon={<Visibility />}
-                      onClick={() => navigate(`/workout/${session.id}`)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/workout/${session.id}`)
+                      }}
                     >
                       Resume Workout
                     </Button>
@@ -306,7 +191,10 @@ const HistoryPage = () => {
                     size="small"
                     color="error"
                     startIcon={<Delete />}
-                    onClick={() => handleDeleteClick(session)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteClick(session)
+                    }}
                   >
                     Delete
                   </Button>

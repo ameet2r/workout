@@ -1,9 +1,13 @@
-import { Box, Typography, Grid, Paper, Button } from '@mui/material'
+import { Box, Typography, Grid, Paper, Button, CircularProgress, Card, CardContent, Chip, Alert } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { FitnessCenter, TrendingUp, History } from '@mui/icons-material'
+import { useHistory } from '../contexts/HistoryContext'
+import { formatDate, formatTime, calculateDuration, getTotalSets } from '../utils/workoutHelpers'
 
 const DashboardPage = () => {
   const navigate = useNavigate()
+  const { getRecentWorkouts, workoutPlans, loading, error, refreshHistory } = useHistory()
+  const recentWorkouts = getRecentWorkouts(5)
 
   const quickActions = [
     {
@@ -57,14 +61,102 @@ const DashboardPage = () => {
       </Grid>
 
       <Box sx={{ mt: 4 }}>
-        <Typography variant="h5" gutterBottom>
-          Recent Activity
-        </Typography>
-        <Paper sx={{ p: 3 }}>
-          <Typography color="text.secondary">
-            No recent workouts. Start your first workout to see your activity here!
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5">
+            Recent Activity
           </Typography>
-        </Paper>
+          {recentWorkouts.length > 0 && (
+            <Button onClick={() => navigate('/history')} size="small">
+              View All
+            </Button>
+          )}
+        </Box>
+
+        {loading ? (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <CircularProgress />
+          </Paper>
+        ) : error ? (
+          <Alert severity="error" action={
+            <Button color="inherit" size="small" onClick={refreshHistory}>
+              Retry
+            </Button>
+          }>
+            {error}
+          </Alert>
+        ) : recentWorkouts.length === 0 ? (
+          <Paper sx={{ p: 3 }}>
+            <Typography color="text.secondary">
+              No recent workouts. Start your first workout to see your activity here!
+            </Typography>
+          </Paper>
+        ) : (
+          <Grid container spacing={2}>
+            {recentWorkouts.map((session) => {
+              const plan = session.workout_plan_id ? workoutPlans[session.workout_plan_id] : null
+              const isCompleted = !!session.end_time
+
+              return (
+                <Grid item xs={12} key={session.id}>
+                  <Card
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': {
+                        boxShadow: 3
+                      }
+                    }}
+                    onClick={() => navigate(isCompleted ? `/history/${session.id}` : `/workout/${session.id}`)}
+                  >
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                        <Box>
+                          <Typography variant="h6">
+                            {plan ? plan.name : 'Custom Workout'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {formatDate(session.start_time)} at {formatTime(session.start_time)}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          label={isCompleted ? 'Completed' : 'In Progress'}
+                          color={isCompleted ? 'success' : 'warning'}
+                          size="small"
+                        />
+                      </Box>
+
+                      <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid item xs={4}>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Duration
+                          </Typography>
+                          <Typography variant="body2">
+                            {calculateDuration(session.start_time, session.end_time)}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={4}>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Exercises
+                          </Typography>
+                          <Typography variant="body2">
+                            {session.exercises?.length || 0}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={4}>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Total Sets
+                          </Typography>
+                          <Typography variant="body2">
+                            {getTotalSets(session)}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )
+            })}
+          </Grid>
+        )}
       </Box>
     </Box>
   )
