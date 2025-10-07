@@ -77,6 +77,17 @@ const ActiveWorkoutPage = () => {
     }
   }, [oneRmMode])
 
+  useEffect(() => {
+    // Auto-populate fields on initial load
+    if (sessionExercises.length > 0 && currentExerciseIndex === 0 && !currentReps && !oneRmMode) {
+      const exercise = sessionExercises[0]
+      if (exercise) {
+        setCurrentReps(exercise.plannedReps ? exercise.plannedReps.toString() : '')
+        setCurrentWeight(exercise.plannedWeight && !exercise.isBodyweight ? exercise.plannedWeight.toString() : '')
+      }
+    }
+  }, [sessionExercises])
+
   const fetchWorkoutData = async () => {
     try {
       setLoading(true)
@@ -242,9 +253,19 @@ const ActiveWorkoutPage = () => {
   const handleChangeExercise = (index) => {
     setCurrentExerciseIndex(index)
     setOneRmMode(false) // Reset 1RM mode when switching exercises
-    setCurrentReps('')
-    setCurrentWeight('')
-    setCurrentRpe('')
+
+    // Auto-populate fields from plan
+    const exercise = sessionExercises[index]
+    if (exercise) {
+      setCurrentReps(exercise.plannedReps ? exercise.plannedReps.toString() : '')
+      setCurrentWeight(exercise.plannedWeight && !exercise.isBodyweight ? exercise.plannedWeight.toString() : '')
+      setCurrentRpe('')
+    } else {
+      setCurrentReps('')
+      setCurrentWeight('')
+      setCurrentRpe('')
+    }
+
     // Stop any active timer when changing exercise
     handleStopTimer()
   }
