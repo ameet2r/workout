@@ -105,14 +105,13 @@ const ProgressPage = () => {
       session.exercises?.forEach(exercise => {
         if (exercise.exercise_version_id === exerciseVersionId) {
           exercise.sets?.forEach(set => {
-            if (set.weight) {
-              data.push({
-                date: new Date(session.start_time),
-                weight: set.weight,
-                reps: set.reps,
-                volume: set.weight * set.reps
-              })
-            }
+            // Include all sets, even those without weight (bodyweight exercises)
+            data.push({
+              date: new Date(session.start_time),
+              weight: set.weight || 0,
+              reps: set.reps || 0,
+              volume: (set.weight || 0) * (set.reps || 0)
+            })
           })
         }
       })
@@ -121,12 +120,19 @@ const ProgressPage = () => {
     // Sort by date and group by session
     data.sort((a, b) => a.date - b.date)
 
-    // Group by date and get max weight for each session
+    // Group by date and get max weight/reps for each session
     const groupedByDate = {}
     data.forEach(point => {
       const dateKey = point.date.toISOString().split('T')[0]
-      if (!groupedByDate[dateKey] || groupedByDate[dateKey].weight < point.weight) {
+      if (!groupedByDate[dateKey]) {
         groupedByDate[dateKey] = point
+      } else {
+        // For weighted exercises, track max weight. For bodyweight, track max reps
+        if (point.weight > 0 && point.weight > groupedByDate[dateKey].weight) {
+          groupedByDate[dateKey] = point
+        } else if (point.weight === 0 && groupedByDate[dateKey].weight === 0 && point.reps > groupedByDate[dateKey].reps) {
+          groupedByDate[dateKey] = point
+        }
       }
     })
 
@@ -140,11 +146,27 @@ const ProgressPage = () => {
       session.exercises?.forEach(exercise => {
         const versionId = exercise.exercise_version_id
         exercise.sets?.forEach(set => {
-          if (set.weight) {
-            if (!records[versionId] || records[versionId].weight < set.weight) {
+          const weight = set.weight || 0
+          const reps = set.reps || 0
+
+          if (!records[versionId]) {
+            records[versionId] = {
+              weight: weight,
+              reps: reps,
+              date: new Date(session.start_time)
+            }
+          } else {
+            // For weighted exercises, track max weight. For bodyweight, track max reps
+            if (weight > records[versionId].weight) {
               records[versionId] = {
-                weight: set.weight,
-                reps: set.reps,
+                weight: weight,
+                reps: reps,
+                date: new Date(session.start_time)
+              }
+            } else if (weight === 0 && records[versionId].weight === 0 && reps > records[versionId].reps) {
+              records[versionId] = {
+                weight: weight,
+                reps: reps,
                 date: new Date(session.start_time)
               }
             }
@@ -179,7 +201,7 @@ const ProgressPage = () => {
     const performedIds = new Set()
     workoutSessions.forEach(session => {
       session.exercises?.forEach(exercise => {
-        if (exercise.sets?.some(set => set.weight)) {
+        if (exercise.sets && exercise.sets.length > 0) {
           performedIds.add(exercise.exercise_version_id)
         }
       })
@@ -517,49 +539,73 @@ const ProgressPage = () => {
 
           {selectedExerciseVersionId && progressData.length > 0 && (
             <Box>
-              <Typography variant="subtitle2" gutterBottom>
-                Weight Progression
-              </Typography>
-              <LineChart
-                xAxis={[{
-                  scaleType: 'time',
-                  data: progressData.map(d => d.date),
-                  valueFormatter: (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                }]}
-                series={[{
-                  data: progressData.map(d => d.weight),
-                  label: 'Weight (lbs)',
-                  showMark: true
-                }]}
-                height={300}
-                sx={{ mb: 3 }}
-              />
+              {/* Check if this is a bodyweight exercise (all weights are 0) */}
+              {progressData.every(d => d.weight === 0) ? (
+                <>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Reps Progression
+                  </Typography>
+                  <LineChart
+                    xAxis={[{
+                      scaleType: 'time',
+                      data: progressData.map(d => d.date),
+                      valueFormatter: (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    }]}
+                    series={[{
+                      data: progressData.map(d => d.reps),
+                      label: 'Reps',
+                      showMark: true
+                    }]}
+                    height={300}
+                  />
+                </>
+              ) : (
+                <>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Weight Progression
+                  </Typography>
+                  <LineChart
+                    xAxis={[{
+                      scaleType: 'time',
+                      data: progressData.map(d => d.date),
+                      valueFormatter: (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    }]}
+                    series={[{
+                      data: progressData.map(d => d.weight),
+                      label: 'Weight (lbs)',
+                      showMark: true
+                    }]}
+                    height={300}
+                    sx={{ mb: 3 }}
+                  />
 
-              <Divider sx={{ my: 3 }} />
+                  <Divider sx={{ my: 3 }} />
 
-              <Typography variant="subtitle2" gutterBottom>
-                Volume Progression
-              </Typography>
-              <LineChart
-                xAxis={[{
-                  scaleType: 'time',
-                  data: progressData.map(d => d.date),
-                  valueFormatter: (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                }]}
-                series={[{
-                  data: progressData.map(d => d.volume),
-                  label: 'Volume (lbs × reps)',
-                  showMark: true,
-                  color: '#f57c00'
-                }]}
-                height={300}
-              />
+                  <Typography variant="subtitle2" gutterBottom>
+                    Volume Progression
+                  </Typography>
+                  <LineChart
+                    xAxis={[{
+                      scaleType: 'time',
+                      data: progressData.map(d => d.date),
+                      valueFormatter: (date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                    }]}
+                    series={[{
+                      data: progressData.map(d => d.volume),
+                      label: 'Volume (lbs × reps)',
+                      showMark: true,
+                      color: '#f57c00'
+                    }]}
+                    height={300}
+                  />
+                </>
+              )}
             </Box>
           )}
 
           {selectedExerciseVersionId && progressData.length === 0 && (
             <Typography color="text.secondary">
-              No weight data available for this exercise
+              No data available for this exercise
             </Typography>
           )}
         </Paper>
@@ -583,11 +629,19 @@ const ProgressPage = () => {
               </TableHead>
               <TableBody>
                 {Object.entries(personalRecords)
-                  .sort((a, b) => b[1].weight - a[1].weight)
+                  .sort((a, b) => {
+                    // Sort by weight first, then by reps for bodyweight exercises
+                    if (b[1].weight !== a[1].weight) {
+                      return b[1].weight - a[1].weight
+                    }
+                    return b[1].reps - a[1].reps
+                  })
                   .map(([versionId, record]) => (
                     <TableRow key={versionId}>
                       <TableCell>{getExerciseVersionName(versionId)}</TableCell>
-                      <TableCell align="right">{record.weight}</TableCell>
+                      <TableCell align="right">
+                        {record.weight > 0 ? record.weight : 'Bodyweight'}
+                      </TableCell>
                       <TableCell align="right">{record.reps}</TableCell>
                       <TableCell align="right">
                         {record.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
