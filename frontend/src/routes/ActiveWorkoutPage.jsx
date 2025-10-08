@@ -69,7 +69,12 @@ const ActiveWorkoutPage = () => {
   useEffect(() => {
     if (isConnected) {
       logger.info('Workout', 'Heart rate monitor connected')
-      lastHeartRateRef.current = Date.now()
+
+      // Only initialize lastHeartRateRef if it's not already set
+      // This prevents resetting it on every effect run
+      if (!lastHeartRateRef.current) {
+        lastHeartRateRef.current = Date.now()
+      }
 
       // Set up a periodic check for stale heart rate data
       const intervalId = setInterval(() => {
@@ -82,10 +87,12 @@ const ActiveWorkoutPage = () => {
       }, 10000) // Check every 10 seconds
 
       return () => clearInterval(intervalId)
-    } else if (isConnected === false && heartRateReadings.length > 0) {
+    } else if (isConnected === false) {
       logger.info('Workout', 'Heart rate monitor disconnected')
+      // Reset the ref when disconnected so it can be reinitialized on next connection
+      lastHeartRateRef.current = null
     }
-  }, [isConnected, heartRateReadings.length])
+  }, [isConnected])
 
   // Track when heart rate data is received
   useEffect(() => {
