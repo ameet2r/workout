@@ -1,4 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import logger from '../utils/workoutLogger'
+
+// Module-level storage to persist device connection across component mounts
+let persistedDevice = null
+let persistedCharacteristic = null
 
 /**
  * Custom hook for connecting to Bluetooth heart rate monitors
@@ -13,8 +18,8 @@ export const useHeartRateMonitor = () => {
   const [error, setError] = useState(null)
   const [isSupported, setIsSupported] = useState(false)
 
-  const deviceRef = useRef(null)
-  const characteristicRef = useRef(null)
+  const deviceRef = useRef(persistedDevice)
+  const characteristicRef = useRef(persistedCharacteristic)
 
   // Check if Web Bluetooth is supported
   useEffect(() => {
@@ -54,6 +59,7 @@ export const useHeartRateMonitor = () => {
   const handleHeartRateChange = useCallback((event) => {
     const value = event.target.value
     const heartRate = parseHeartRate(value)
+    logger.info('HR Monitor', `Heart rate received: ${heartRate} BPM`)
     setCurrentHeartRate(heartRate)
   }, [parseHeartRate])
 
@@ -77,34 +83,47 @@ export const useHeartRateMonitor = () => {
 
       setDeviceName(device.name || 'Unknown Device')
       deviceRef.current = device
+      persistedDevice = device // Persist across component mounts
+      logger.info('HR Monitor', `Device selected: ${device.name || 'Unknown Device'} (ID: ${device.id})`)
 
       // Listen for disconnection
       device.addEventListener('gattserverdisconnected', () => {
+        logger.warn('HR Monitor', 'Device disconnected unexpectedly')
         setIsConnected(false)
         setCurrentHeartRate(null)
         setDeviceName(null)
       })
 
       // Connect to GATT server
+      logger.info('HR Monitor', 'Connecting to GATT server...')
       const server = await device.gatt.connect()
+      logger.info('HR Monitor', 'GATT server connected')
 
       // Get heart rate service
+      logger.info('HR Monitor', 'Getting heart rate service...')
       const service = await server.getPrimaryService('heart_rate')
+      logger.info('HR Monitor', 'Heart rate service acquired')
 
       // Get heart rate measurement characteristic
+      logger.info('HR Monitor', 'Getting heart rate measurement characteristic...')
       const characteristic = await service.getCharacteristic('heart_rate_measurement')
       characteristicRef.current = characteristic
+      persistedCharacteristic = characteristic // Persist across component mounts
+      logger.info('HR Monitor', 'Heart rate characteristic acquired')
 
       // Start notifications
+      logger.info('HR Monitor', 'Starting notifications...')
       await characteristic.startNotifications()
+      logger.info('HR Monitor', 'Notifications started successfully')
 
       // Listen for heart rate changes
       characteristic.addEventListener('characteristicvaluechanged', handleHeartRateChange)
 
       setIsConnected(true)
+      logger.info('HR Monitor', '✅ Connection complete and ready to receive heart rate data')
 
     } catch (err) {
-      console.error('Bluetooth connection error:', err)
+      logger.error('HR Monitor', 'Bluetooth connection error:', err.message)
 
       if (err.name === 'NotFoundError') {
         setError('No heart rate monitor found. Make sure your device is powered on and in pairing mode.')
@@ -124,32 +143,108 @@ export const useHeartRateMonitor = () => {
    */
   const disconnect = useCallback(async () => {
     try {
+      logger.info('HR Monitor', 'Disconnecting...')
       if (characteristicRef.current) {
         characteristicRef.current.removeEventListener('characteristicvaluechanged', handleHeartRateChange)
         await characteristicRef.current.stopNotifications()
         characteristicRef.current = null
+        persistedCharacteristic = null
+        logger.info('HR Monitor', 'Notifications stopped')
       }
 
       if (deviceRef.current && deviceRef.current.gatt.connected) {
         await deviceRef.current.gatt.disconnect()
+        logger.info('HR Monitor', 'GATT disconnected')
       }
 
       deviceRef.current = null
+      persistedDevice = null
       setIsConnected(false)
       setCurrentHeartRate(null)
       setDeviceName(null)
       setError(null)
+      logger.info('HR Monitor', 'Disconnect complete')
     } catch (err) {
-      console.error('Disconnect error:', err)
+      logger.error('HR Monitor', 'Disconnect error:', err.message)
     }
   }, [handleHeartRateChange])
 
-  // Cleanup on unmount
+  /**
+   * Reconnect to a previously connected device
+   */
+  const reconnect = useCallback(async () => {
+    if (!deviceRef.current) {
+      logger.warn('HR Monitor', 'Cannot reconnect - no device reference')
+      return
+    }
+
+    try {
+      logger.info('HR Monitor', `Attempting to reconnect to ${deviceRef.current.name || 'Unknown Device'}`)
+      setError(null)
+
+      // Check if already connected
+      if (deviceRef.current.gatt.connected) {
+        logger.info('HR Monitor', 'Device already connected, re-establishing listeners')
+      } else {
+        // Reconnect to GATT server
+        logger.info('HR Monitor', 'Reconnecting to GATT server...')
+        await deviceRef.current.gatt.connect()
+        logger.info('HR Monitor', 'GATT server reconnected')
+      }
+
+      // Get services and characteristics again
+      const service = await deviceRef.current.gatt.getPrimaryService('heart_rate')
+      const characteristic = await service.getCharacteristic('heart_rate_measurement')
+      characteristicRef.current = characteristic
+      persistedCharacteristic = characteristic // Persist the new characteristic
+
+      // Start notifications
+      await characteristic.startNotifications()
+      logger.info('HR Monitor', 'Notifications restarted')
+
+      // Re-add event listener
+      characteristic.addEventListener('characteristicvaluechanged', handleHeartRateChange)
+
+      setIsConnected(true)
+      logger.info('HR Monitor', '✅ Reconnection complete')
+    } catch (err) {
+      logger.error('HR Monitor', 'Reconnection failed:', err.message)
+      setError(`Reconnection failed: ${err.message}`)
+      setIsConnected(false)
+    }
+  }, [handleHeartRateChange])
+
+  // Check for existing connection on mount
+  useEffect(() => {
+    logger.info('HR Monitor', 'Component mounted')
+
+    // Restore persisted device info
+    if (persistedDevice) {
+      deviceRef.current = persistedDevice
+      setDeviceName(persistedDevice.name || 'Unknown Device')
+      logger.info('HR Monitor', `Restored device reference: ${persistedDevice.name || 'Unknown Device'}`)
+
+      if (persistedDevice.gatt.connected) {
+        logger.info('HR Monitor', 'Device still connected, re-establishing listeners...')
+        reconnect()
+      } else {
+        logger.info('HR Monitor', 'Device reference exists but not connected (state shows paired but disconnected)')
+        setIsConnected(false)
+      }
+    }
+  }, [reconnect])
+
+  // Cleanup on unmount - DO NOT disconnect, keep connection alive
   useEffect(() => {
     return () => {
-      disconnect()
+      logger.info('HR Monitor', 'Component unmounting - keeping connection alive for navigation')
+      // Don't disconnect! Just remove listeners to prevent memory leaks
+      if (characteristicRef.current) {
+        logger.info('HR Monitor', 'Removing event listener on unmount')
+        characteristicRef.current.removeEventListener('characteristicvaluechanged', handleHeartRateChange)
+      }
     }
-  }, [disconnect])
+  }, [handleHeartRateChange])
 
   return {
     isSupported,
@@ -158,6 +253,7 @@ export const useHeartRateMonitor = () => {
     deviceName,
     error,
     connect,
-    disconnect
+    disconnect,
+    reconnect
   }
 }

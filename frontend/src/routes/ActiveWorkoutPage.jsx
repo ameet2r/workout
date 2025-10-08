@@ -25,11 +25,12 @@ import {
   Switch,
   FormControlLabel
 } from '@mui/material'
-import { Add, Delete, Check, Close, PlayArrow, Stop, Refresh, Favorite, Bluetooth, BluetoothDisabled } from '@mui/icons-material'
+import { Add, Delete, Check, Close, PlayArrow, Stop, Refresh, Favorite, Bluetooth, BluetoothDisabled, FileDownload } from '@mui/icons-material'
 import { authenticatedGet, authenticatedPatch, authenticatedPost, authenticatedDelete } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
 import { useHistory } from '../contexts/HistoryContext'
 import { useHeartRateMonitor } from '../hooks/useHeartRateMonitor'
+import logger from '../utils/workoutLogger'
 
 const ActiveWorkoutPage = () => {
   const { sessionId } = useParams()
@@ -55,13 +56,43 @@ const ActiveWorkoutPage = () => {
   const audioRef = useRef(null)
 
   // Heart rate monitoring
-  const { isSupported, isConnected, currentHeartRate, deviceName, error: hrError, connect, disconnect } = useHeartRateMonitor()
+  const { isSupported, isConnected, currentHeartRate, deviceName, error: hrError, connect, disconnect, reconnect } = useHeartRateMonitor()
   const [heartRateReadings, setHeartRateReadings] = useState([])
   const [includeHeartRate, setIncludeHeartRate] = useState(false)
+  const lastHeartRateRef = useRef(null)
 
   useEffect(() => {
     fetchWorkoutData()
   }, [sessionId])
+
+  // Monitor connection status changes
+  useEffect(() => {
+    if (isConnected) {
+      logger.info('Workout', 'Heart rate monitor connected')
+      lastHeartRateRef.current = Date.now()
+
+      // Set up a periodic check for stale heart rate data
+      const intervalId = setInterval(() => {
+        if (lastHeartRateRef.current) {
+          const secondsSinceLastReading = (Date.now() - lastHeartRateRef.current) / 1000
+          if (secondsSinceLastReading > 10) {
+            logger.warn('Workout', `⚠️ No heart rate data received in ${secondsSinceLastReading.toFixed(0)}s - possible connection issue`)
+          }
+        }
+      }, 10000) // Check every 10 seconds
+
+      return () => clearInterval(intervalId)
+    } else if (isConnected === false && heartRateReadings.length > 0) {
+      logger.info('Workout', 'Heart rate monitor disconnected')
+    }
+  }, [isConnected, heartRateReadings.length])
+
+  // Track when heart rate data is received
+  useEffect(() => {
+    if (currentHeartRate && isConnected) {
+      lastHeartRateRef.current = Date.now()
+    }
+  }, [currentHeartRate, isConnected])
 
   // Load session exercises and heart rate data from localStorage on mount
   useEffect(() => {
@@ -72,8 +103,9 @@ const ActiveWorkoutPage = () => {
       try {
         const parsed = JSON.parse(storedExercises)
         setSessionExercises(parsed)
+        logger.info('Workout', `Loaded ${parsed.length} exercises from localStorage`)
       } catch (err) {
-        console.error('Error parsing stored exercises:', err)
+        logger.error('Workout', 'Error parsing stored exercises:', err.message)
       }
     }
 
@@ -81,9 +113,25 @@ const ActiveWorkoutPage = () => {
       try {
         const parsed = JSON.parse(storedHeartRate)
         setHeartRateReadings(parsed)
+        const sizeKB = (storedHeartRate.length / 1024).toFixed(2)
+        logger.info('Workout', `Loaded ${parsed.length} heart rate readings from localStorage (~${sizeKB} KB)`)
       } catch (err) {
-        console.error('Error parsing stored heart rate:', err)
+        logger.error('Workout', 'Error parsing stored heart rate:', err.message)
       }
+    }
+
+    // Log localStorage usage
+    try {
+      if (navigator.storage && navigator.storage.estimate) {
+        navigator.storage.estimate().then(estimate => {
+          const usedMB = (estimate.usage / 1024 / 1024).toFixed(2)
+          const quotaMB = (estimate.quota / 1024 / 1024).toFixed(2)
+          const percentUsed = ((estimate.usage / estimate.quota) * 100).toFixed(2)
+          logger.info('Workout', `Storage: ${usedMB} MB / ${quotaMB} MB (${percentUsed}% used)`)
+        })
+      }
+    } catch (err) {
+      logger.warn('Workout', 'Could not estimate storage:', err.message)
     }
   }, [sessionId])
 
@@ -104,8 +152,34 @@ const ActiveWorkoutPage = () => {
 
       setHeartRateReadings(prev => {
         const updated = [...prev, newReading]
+
+        // Check for gaps in data (more than 5 seconds since last reading)
+        if (prev.length > 0) {
+          const lastTimestamp = new Date(prev[prev.length - 1].timestamp)
+          const currentTimestamp = new Date(newReading.timestamp)
+          const gapSeconds = (currentTimestamp - lastTimestamp) / 1000
+          if (gapSeconds > 5) {
+            logger.warn('Workout', `⚠️ Gap detected in heart rate data: ${gapSeconds.toFixed(1)}s since last reading`)
+          }
+        }
+
         // Save to localStorage
-        localStorage.setItem(`workout_session_${sessionId}_heart_rate`, JSON.stringify(updated))
+        try {
+          const dataStr = JSON.stringify(updated)
+          localStorage.setItem(`workout_session_${sessionId}_heart_rate`, dataStr)
+
+          // Log every 50 readings to avoid spam
+          if (updated.length % 50 === 0) {
+            const sizeKB = (dataStr.length / 1024).toFixed(2)
+            logger.info('Workout', `Saved ${updated.length} heart rate readings to localStorage (~${sizeKB} KB)`)
+          }
+        } catch (err) {
+          logger.error('Workout', '❌ Failed to save heart rate to localStorage:', err.message)
+          if (err.name === 'QuotaExceededError') {
+            logger.error('Workout', '❌ localStorage quota exceeded! Cannot save more heart rate data.')
+          }
+        }
+
         return updated
       })
     }
@@ -247,6 +321,8 @@ const ActiveWorkoutPage = () => {
 
   const handleCompleteWorkout = async () => {
     try {
+      logger.info('Workout', 'Completing workout...')
+
       // Prepare exercise data for upload
       const exercisesData = sessionExercises.map(ex => ({
         exercise_version_id: ex.exercise_version_id,
@@ -260,11 +336,15 @@ const ActiveWorkoutPage = () => {
 
       // If user wants to include heart rate data
       if (includeHeartRate && heartRateReadings.length > 0) {
+        logger.info('Workout', `Processing ${heartRateReadings.length} heart rate readings for upload...`)
+
         // Calculate summary statistics
         const hrValues = heartRateReadings.map(r => r.value)
         const avgHeartRate = Math.round(hrValues.reduce((a, b) => a + b, 0) / hrValues.length)
         const maxHeartRate = Math.max(...hrValues)
         const minHeartRate = Math.min(...hrValues)
+
+        logger.info('Workout', `Heart rate stats - Avg: ${avgHeartRate} BPM, Max: ${maxHeartRate} BPM, Min: ${minHeartRate} BPM`)
 
         const garminData = {
           avg_heart_rate: avgHeartRate,
@@ -287,6 +367,7 @@ const ActiveWorkoutPage = () => {
         }
 
         // Create time-series documents
+        logger.info('Workout', `Uploading ${batches.length} batches of heart rate data...`)
         for (let i = 0; i < batches.length; i++) {
           const batch = batches[i]
           // Note: This requires a new backend endpoint or we use Firestore directly
@@ -295,26 +376,33 @@ const ActiveWorkoutPage = () => {
           await authenticatedPost(`/api/workout-sessions/${sessionId}/heart-rate-batch/${i}`, {
             data: batch
           })
+          logger.info('Workout', `Uploaded batch ${i + 1}/${batches.length} (${batch.length} readings)`)
         }
+        logger.info('Workout', '✅ All heart rate data uploaded successfully')
+      } else if (heartRateReadings.length > 0) {
+        logger.info('Workout', `Skipping heart rate upload (${heartRateReadings.length} readings collected but not included)`)
       }
 
       // Mark workout as complete
       await authenticatedPost(`/api/workout-sessions/${sessionId}/complete`, {})
 
       // Clean up localStorage
+      logger.info('Workout', 'Cleaning up localStorage...')
       localStorage.removeItem(`workout_session_${sessionId}_exercises`)
       localStorage.removeItem(`workout_session_${sessionId}_heart_rate`)
 
       // Disconnect heart rate monitor if connected
       if (isConnected) {
+        logger.info('Workout', 'Disconnecting heart rate monitor...')
         disconnect()
       }
 
       await refreshHistory()
       setOpenCompleteDialog(false)
+      logger.info('Workout', '✅ Workout completed successfully')
       navigate('/history')
     } catch (err) {
-      console.error('Error completing workout:', err)
+      logger.error('Workout', 'Error completing workout:', err.message)
       alert(`Error completing workout: ${err.message}`)
     }
   }
@@ -577,14 +665,28 @@ const ActiveWorkoutPage = () => {
                 Heart Rate Monitor
               </Typography>
             </Box>
-            <Button
-              variant={isConnected ? 'outlined' : 'contained'}
-              color={isConnected ? 'error' : 'primary'}
-              onClick={isConnected ? disconnect : connect}
-              startIcon={isConnected ? <BluetoothDisabled /> : <Bluetooth />}
-            >
-              {isConnected ? 'Disconnect' : 'Connect'}
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => {
+                  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19)
+                  logger.downloadLogs(`workout-logs-${timestamp}.txt`)
+                }}
+                startIcon={<FileDownload />}
+                title={`Download ${logger.getLogCount()} log entries (${logger.getStorageSize()} KB)`}
+              >
+                Debug Logs ({logger.getLogCount()})
+              </Button>
+              <Button
+                variant={isConnected ? 'outlined' : 'contained'}
+                color={isConnected ? 'error' : 'primary'}
+                onClick={isConnected ? disconnect : connect}
+                startIcon={isConnected ? <BluetoothDisabled /> : <Bluetooth />}
+              >
+                {isConnected ? 'Disconnect' : 'Connect'}
+              </Button>
+            </Box>
           </Box>
 
           {hrError && (
@@ -619,7 +721,24 @@ const ActiveWorkoutPage = () => {
             </Box>
           )}
 
-          {!isConnected && (
+          {deviceName && !isConnected && (
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="warning" sx={{ mb: 1 }}>
+                Device paired but not receiving data. Try reconnecting.
+              </Alert>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={reconnect}
+                startIcon={<Refresh />}
+                fullWidth
+              >
+                Reconnect to {deviceName}
+              </Button>
+            </Box>
+          )}
+
+          {!isConnected && !deviceName && (
             <Typography variant="body2" color="text.secondary">
               Connect a Bluetooth heart rate monitor to track your heart rate during this workout.
               Compatible with most Garmin, Polar, and standard BLE heart rate monitors.
