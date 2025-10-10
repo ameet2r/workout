@@ -6,6 +6,13 @@
 const MAX_LOGS = 5000 // Maximum number of log entries to keep
 const STORAGE_KEY = 'workout_debug_logs'
 
+// Check if debug mode is enabled via environment variable
+// Defaults to false if not set or set to anything other than "true"
+const isDebugEnabled = () => {
+  const debugValue = import.meta.env.VITE_DEBUG_HEART_RATE
+  return debugValue === 'true'
+}
+
 class WorkoutLogger {
   constructor() {
     this.logs = []
@@ -46,6 +53,11 @@ class WorkoutLogger {
   }
 
   log(category, level, message, ...args) {
+    // Only log if debug mode is enabled
+    if (!isDebugEnabled()) {
+      return
+    }
+
     const timestamp = new Date().toISOString()
     const logEntry = {
       timestamp,

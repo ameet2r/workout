@@ -32,6 +32,9 @@ import { useHistory } from '../contexts/HistoryContext'
 import { useHeartRateMonitor } from '../hooks/useHeartRateMonitor'
 import logger from '../utils/workoutLogger'
 
+// Check if debug mode is enabled
+const isDebugEnabled = import.meta.env.VITE_DEBUG_HEART_RATE === 'true'
+
 const ActiveWorkoutPage = () => {
   const { sessionId } = useParams()
   const navigate = useNavigate()
@@ -68,7 +71,9 @@ const ActiveWorkoutPage = () => {
   // Monitor connection status changes
   useEffect(() => {
     if (isConnected) {
-      logger.info('Workout', 'Heart rate monitor connected')
+      if (isDebugEnabled) {
+        logger.info('Workout', 'Heart rate monitor connected')
+      }
 
       // Only initialize lastHeartRateRef if it's not already set
       // This prevents resetting it on every effect run
@@ -80,7 +85,7 @@ const ActiveWorkoutPage = () => {
       const intervalId = setInterval(() => {
         if (lastHeartRateRef.current) {
           const secondsSinceLastReading = (Date.now() - lastHeartRateRef.current) / 1000
-          if (secondsSinceLastReading > 10) {
+          if (secondsSinceLastReading > 10 && isDebugEnabled) {
             logger.warn('Workout', `⚠️ No heart rate data received in ${secondsSinceLastReading.toFixed(0)}s - possible connection issue`)
           }
         }
@@ -88,7 +93,9 @@ const ActiveWorkoutPage = () => {
 
       return () => clearInterval(intervalId)
     } else if (isConnected === false) {
-      logger.info('Workout', 'Heart rate monitor disconnected')
+      if (isDebugEnabled) {
+        logger.info('Workout', 'Heart rate monitor disconnected')
+      }
       // Reset the ref when disconnected so it can be reinitialized on next connection
       lastHeartRateRef.current = null
     }
@@ -110,9 +117,10 @@ const ActiveWorkoutPage = () => {
       try {
         const parsed = JSON.parse(storedExercises)
         setSessionExercises(parsed)
-        logger.info('Workout', `Loaded ${parsed.length} exercises from localStorage`)
       } catch (err) {
-        logger.error('Workout', 'Error parsing stored exercises:', err.message)
+        if (isDebugEnabled) {
+          logger.error('Workout', 'Error parsing stored exercises:', err.message)
+        }
       }
     }
 
@@ -120,25 +128,11 @@ const ActiveWorkoutPage = () => {
       try {
         const parsed = JSON.parse(storedHeartRate)
         setHeartRateReadings(parsed)
-        const sizeKB = (storedHeartRate.length / 1024).toFixed(2)
-        logger.info('Workout', `Loaded ${parsed.length} heart rate readings from localStorage (~${sizeKB} KB)`)
       } catch (err) {
-        logger.error('Workout', 'Error parsing stored heart rate:', err.message)
+        if (isDebugEnabled) {
+          logger.error('Workout', 'Error parsing stored heart rate:', err.message)
+        }
       }
-    }
-
-    // Log localStorage usage
-    try {
-      if (navigator.storage && navigator.storage.estimate) {
-        navigator.storage.estimate().then(estimate => {
-          const usedMB = (estimate.usage / 1024 / 1024).toFixed(2)
-          const quotaMB = (estimate.quota / 1024 / 1024).toFixed(2)
-          const percentUsed = ((estimate.usage / estimate.quota) * 100).toFixed(2)
-          logger.info('Workout', `Storage: ${usedMB} MB / ${quotaMB} MB (${percentUsed}% used)`)
-        })
-      }
-    } catch (err) {
-      logger.warn('Workout', 'Could not estimate storage:', err.message)
     }
   }, [sessionId])
 
@@ -161,7 +155,7 @@ const ActiveWorkoutPage = () => {
         const updated = [...prev, newReading]
 
         // Check for gaps in data (more than 5 seconds since last reading)
-        if (prev.length > 0) {
+        if (prev.length > 0 && isDebugEnabled) {
           const lastTimestamp = new Date(prev[prev.length - 1].timestamp)
           const currentTimestamp = new Date(newReading.timestamp)
           const gapSeconds = (currentTimestamp - lastTimestamp) / 1000
@@ -174,16 +168,12 @@ const ActiveWorkoutPage = () => {
         try {
           const dataStr = JSON.stringify(updated)
           localStorage.setItem(`workout_session_${sessionId}_heart_rate`, dataStr)
-
-          // Log every 50 readings to avoid spam
-          if (updated.length % 50 === 0) {
-            const sizeKB = (dataStr.length / 1024).toFixed(2)
-            logger.info('Workout', `Saved ${updated.length} heart rate readings to localStorage (~${sizeKB} KB)`)
-          }
         } catch (err) {
-          logger.error('Workout', '❌ Failed to save heart rate to localStorage:', err.message)
-          if (err.name === 'QuotaExceededError') {
-            logger.error('Workout', '❌ localStorage quota exceeded! Cannot save more heart rate data.')
+          if (isDebugEnabled) {
+            logger.error('Workout', '❌ Failed to save heart rate to localStorage:', err.message)
+            if (err.name === 'QuotaExceededError') {
+              logger.error('Workout', '❌ localStorage quota exceeded! Cannot save more heart rate data.')
+            }
           }
         }
 
@@ -332,7 +322,9 @@ const ActiveWorkoutPage = () => {
 
   const handleCompleteWorkout = async () => {
     try {
-      logger.info('Workout', 'Completing workout...')
+      if (isDebugEnabled) {
+        logger.info('Workout', 'Completing workout...')
+      }
 
       // Prepare exercise data for upload
       const exercisesData = sessionExercises.map(ex => ({
@@ -347,15 +339,11 @@ const ActiveWorkoutPage = () => {
 
       // If user wants to include heart rate data
       if (includeHeartRate && heartRateReadings.length > 0) {
-        logger.info('Workout', `Processing ${heartRateReadings.length} heart rate readings for upload...`)
-
         // Calculate summary statistics
         const hrValues = heartRateReadings.map(r => r.value)
         const avgHeartRate = Math.round(hrValues.reduce((a, b) => a + b, 0) / hrValues.length)
         const maxHeartRate = Math.max(...hrValues)
         const minHeartRate = Math.min(...hrValues)
-
-        logger.info('Workout', `Heart rate stats - Avg: ${avgHeartRate} BPM, Max: ${maxHeartRate} BPM, Min: ${minHeartRate} BPM`)
 
         const garminData = {
           avg_heart_rate: avgHeartRate,
@@ -378,42 +366,42 @@ const ActiveWorkoutPage = () => {
         }
 
         // Create time-series documents
-        logger.info('Workout', `Uploading ${batches.length} batches of heart rate data...`)
         for (let i = 0; i < batches.length; i++) {
           const batch = batches[i]
-          // Note: This requires a new backend endpoint or we use Firestore directly
-          // For now, we'll send it to backend which can handle it
-          // Backend will need to support creating time_series subcollection documents
           await authenticatedPost(`/api/workout-sessions/${sessionId}/heart-rate-batch/${i}`, {
             data: batch
           })
-          logger.info('Workout', `Uploaded batch ${i + 1}/${batches.length} (${batch.length} readings)`)
         }
-        logger.info('Workout', '✅ All heart rate data uploaded successfully')
-      } else if (heartRateReadings.length > 0) {
-        logger.info('Workout', `Skipping heart rate upload (${heartRateReadings.length} readings collected but not included)`)
+
+        if (isDebugEnabled) {
+          logger.info('Workout', '✅ All heart rate data uploaded successfully')
+        }
       }
 
       // Mark workout as complete
       await authenticatedPost(`/api/workout-sessions/${sessionId}/complete`, {})
 
       // Clean up localStorage
-      logger.info('Workout', 'Cleaning up localStorage...')
       localStorage.removeItem(`workout_session_${sessionId}_exercises`)
       localStorage.removeItem(`workout_session_${sessionId}_heart_rate`)
 
       // Disconnect heart rate monitor if connected
       if (isConnected) {
-        logger.info('Workout', 'Disconnecting heart rate monitor...')
         disconnect()
       }
 
       await refreshHistory()
       setOpenCompleteDialog(false)
-      logger.info('Workout', '✅ Workout completed successfully')
+
+      if (isDebugEnabled) {
+        logger.info('Workout', '✅ Workout completed successfully')
+      }
+
       navigate('/history')
     } catch (err) {
-      logger.error('Workout', 'Error completing workout:', err.message)
+      if (isDebugEnabled) {
+        logger.error('Workout', 'Error completing workout:', err.message)
+      }
       alert(`Error completing workout: ${err.message}`)
     }
   }
@@ -677,18 +665,20 @@ const ActiveWorkoutPage = () => {
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => {
-                  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19)
-                  logger.downloadLogs(`workout-logs-${timestamp}.txt`)
-                }}
-                startIcon={<FileDownload />}
-                title={`Download ${logger.getLogCount()} log entries (${logger.getStorageSize()} KB)`}
-              >
-                Debug Logs ({logger.getLogCount()})
-              </Button>
+              {isDebugEnabled && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19)
+                    logger.downloadLogs(`workout-logs-${timestamp}.txt`)
+                  }}
+                  startIcon={<FileDownload />}
+                  title={`Download ${logger.getLogCount()} log entries (${logger.getStorageSize()} KB)`}
+                >
+                  Debug Logs ({logger.getLogCount()})
+                </Button>
+              )}
               <Button
                 variant={isConnected ? 'outlined' : 'contained'}
                 color={isConnected ? 'error' : 'primary'}
