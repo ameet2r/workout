@@ -313,6 +313,10 @@ const ActiveWorkoutPage = () => {
     // Keep 1RM mode active if it was on (allows multiple 1RM attempts)
     if (oneRmMode) {
       setCurrentReps('1')
+    } else {
+      // Auto-populate fields from plan for next set
+      setCurrentReps(currentExercise.plannedReps ? currentExercise.plannedReps.toString() : '')
+      setCurrentWeight(currentExercise.plannedWeight && !currentExercise.isBodyweight ? currentExercise.plannedWeight.toString() : '')
     }
   }
 
