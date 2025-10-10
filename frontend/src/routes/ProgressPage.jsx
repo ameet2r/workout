@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box,
   Typography,
@@ -26,40 +26,21 @@ import {
 } from '@mui/material'
 import { LineChart } from '@mui/x-charts/LineChart'
 import { BarChart } from '@mui/x-charts/BarChart'
-import { authenticatedGet } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
+import { useHistory } from '../contexts/HistoryContext'
 import BodyVisualization2D from '../components/BodyVisualization2D'
 import FrequencyLegend from '../components/FrequencyLegend'
 
 const ProgressPage = () => {
   const { exercises, exerciseVersions } = useExercises()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [workoutSessions, setWorkoutSessions] = useState([])
+  const { workoutSessions, loading, error } = useHistory()
   const [selectedExerciseVersionId, setSelectedExerciseVersionId] = useState('')
   const [bodyPartStartDate, setBodyPartStartDate] = useState('')
   const [bodyPartEndDate, setBodyPartEndDate] = useState('')
   const [bodyPartSortOrder, setBodyPartSortOrder] = useState('desc')
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const sessionsData = await authenticatedGet('/api/workout-sessions')
-
-      // Only include completed sessions
-      const completedSessions = sessionsData.filter(s => s.end_time)
-      setWorkoutSessions(completedSessions)
-      setError(null)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Only include completed sessions for progress analytics
+  const completedSessions = workoutSessions.filter(s => s.end_time)
 
   const getExerciseVersionName = (versionId) => {
     const version = exerciseVersions.find(v => v.id === versionId)
@@ -69,12 +50,12 @@ const ProgressPage = () => {
   }
 
   const calculateOverallStats = () => {
-    const totalWorkouts = workoutSessions.length
+    const totalWorkouts = completedSessions.length
     let totalVolume = 0
     let totalDuration = 0
     let totalSets = 0
 
-    workoutSessions.forEach(session => {
+    completedSessions.forEach(session => {
       // Calculate volume
       session.exercises?.forEach(ex => {
         ex.sets?.forEach(set => {
@@ -101,7 +82,7 @@ const ProgressPage = () => {
   const getExerciseProgressData = (exerciseVersionId) => {
     const data = []
 
-    workoutSessions.forEach(session => {
+    completedSessions.forEach(session => {
       session.exercises?.forEach(exercise => {
         if (exercise.exercise_version_id === exerciseVersionId) {
           exercise.sets?.forEach(set => {
@@ -142,7 +123,7 @@ const ProgressPage = () => {
   const getPersonalRecords = () => {
     const records = {}
 
-    workoutSessions.forEach(session => {
+    completedSessions.forEach(session => {
       session.exercises?.forEach(exercise => {
         const versionId = exercise.exercise_version_id
         exercise.sets?.forEach(set => {
@@ -181,7 +162,7 @@ const ProgressPage = () => {
   const getWorkoutFrequencyData = () => {
     const weeklyData = {}
 
-    workoutSessions.forEach(session => {
+    completedSessions.forEach(session => {
       const date = new Date(session.start_time)
       const weekStart = new Date(date)
       weekStart.setDate(date.getDate() - date.getDay()) // Start of week (Sunday)
@@ -199,7 +180,7 @@ const ProgressPage = () => {
   // Get all unique exercise versions that have been performed
   const getPerformedExerciseVersions = () => {
     const performedIds = new Set()
-    workoutSessions.forEach(session => {
+    completedSessions.forEach(session => {
       session.exercises?.forEach(exercise => {
         if (exercise.sets && exercise.sets.length > 0) {
           performedIds.add(exercise.exercise_version_id)
@@ -213,7 +194,7 @@ const ProgressPage = () => {
     const bodyPartCounts = {}
 
     // Filter sessions by date range
-    const filteredSessions = workoutSessions.filter(session => {
+    const filteredSessions = completedSessions.filter(session => {
       const sessionDate = new Date(session.start_time)
 
       // Parse date strings as local dates (not UTC)
@@ -317,7 +298,7 @@ const ProgressPage = () => {
     )
   }
 
-  if (workoutSessions.length === 0) {
+  if (completedSessions.length === 0) {
     return (
       <Box>
         <Typography variant="h4" gutterBottom>
