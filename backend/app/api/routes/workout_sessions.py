@@ -40,18 +40,44 @@ async def create_workout_session(
 @router.get("/", response_model=List[WorkoutSession])
 async def list_workout_sessions(
     limit: int = 50,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     """
     List workout sessions for the current user (excludes garmin_data and notes for performance)
+
+    Args:
+        limit: Maximum number of sessions to return
+        start_date: Filter sessions on or after this date (YYYY-MM-DD format)
+        end_date: Filter sessions on or before this date (YYYY-MM-DD format)
     """
     db = get_firestore_client()
 
     # Only fetch fields needed for list view to reduce bandwidth
     # Excludes: garmin_data, notes (only needed in detail view)
-    sessions_ref = db.collection("workout_sessions").where(
+    query = db.collection("workout_sessions").where(
         "user_id", "==", current_user["uid"]
-    ).select([
+    )
+
+    # Apply date filters if provided
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date)
+            query = query.where("start_time", ">=", start_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD")
+
+    if end_date:
+        try:
+            # Set end of day for end_date to include the entire day
+            end_dt = datetime.fromisoformat(end_date)
+            end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+            query = query.where("start_time", "<=", end_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
+
+    sessions_ref = query.select([
         "user_id",
         "start_time",
         "end_time",

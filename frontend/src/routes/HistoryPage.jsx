@@ -16,7 +16,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
+  DialogActions,
+  TextField,
+  ButtonGroup
 } from '@mui/material'
 import { Visibility, Delete, Upload } from '@mui/icons-material'
 import { authenticatedDelete } from '../utils/api'
@@ -28,11 +30,50 @@ import ImportGarminDialog from '../components/garmin/ImportGarminDialog'
 const HistoryPage = () => {
   const navigate = useNavigate()
   const { exercises, exerciseVersions } = useExercises()
-  const { workoutSessions, workoutPlans, loading, error, deleteWorkoutSession: removeFromContext, addWorkoutSession } = useHistory()
+  const {
+    workoutSessions,
+    workoutPlans,
+    loading,
+    error,
+    startDate,
+    endDate,
+    updateDateRange,
+    deleteWorkoutSession: removeFromContext,
+    addWorkoutSession,
+    getLocalDateString
+  } = useHistory()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState(null)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  const handleQuickDateSelect = (range) => {
+    const today = new Date()
+    const todayString = getLocalDateString(today)
+
+    switch (range) {
+      case 'all':
+        updateDateRange('', '')
+        break
+      case 'year':
+        const yearAgo = new Date(today)
+        yearAgo.setFullYear(today.getFullYear() - 1)
+        updateDateRange(getLocalDateString(yearAgo), todayString)
+        break
+      case '3months':
+        const threeMonthsAgo = new Date(today)
+        threeMonthsAgo.setMonth(today.getMonth() - 3)
+        updateDateRange(getLocalDateString(threeMonthsAgo), todayString)
+        break
+      case 'month':
+        const monthAgo = new Date(today)
+        monthAgo.setDate(today.getDate() - 30)
+        updateDateRange(getLocalDateString(monthAgo), todayString)
+        break
+      default:
+        break
+    }
+  }
 
   const getExerciseVersionName = (versionId) => {
     const version = exerciseVersions.find(v => v.id === versionId)
@@ -124,6 +165,43 @@ const HistoryPage = () => {
           Import from Garmin
         </Button>
       </Box>
+
+      {/* Date Range Filter */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Date Range
+        </Typography>
+        <Box sx={{ mb: 3 }}>
+          <ButtonGroup variant="outlined" size="small" sx={{ mb: 2 }}>
+            <Button onClick={() => handleQuickDateSelect('month')}>Last 30 Days</Button>
+            <Button onClick={() => handleQuickDateSelect('3months')}>Last 3 Months</Button>
+            <Button onClick={() => handleQuickDateSelect('year')}>Last Year</Button>
+            <Button onClick={() => handleQuickDateSelect('all')}>All Time</Button>
+          </ButtonGroup>
+        </Box>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Start Date"
+              value={startDate}
+              onChange={(e) => updateDateRange(e.target.value, endDate)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="date"
+              label="End Date"
+              value={endDate}
+              onChange={(e) => updateDateRange(startDate, e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+        </Grid>
+      </Paper>
 
       <Grid container spacing={2}>
         {workoutSessions.map((session) => {

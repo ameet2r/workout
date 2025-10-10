@@ -33,11 +33,45 @@ import FrequencyLegend from '../components/FrequencyLegend'
 
 const ProgressPage = () => {
   const { exercises, exerciseVersions } = useExercises()
-  const { workoutSessions, loading, error } = useHistory()
+  const {
+    workoutSessions,
+    loading,
+    error,
+    startDate,
+    endDate,
+    updateDateRange,
+    getLocalDateString
+  } = useHistory()
   const [selectedExerciseVersionId, setSelectedExerciseVersionId] = useState('')
-  const [bodyPartStartDate, setBodyPartStartDate] = useState('')
-  const [bodyPartEndDate, setBodyPartEndDate] = useState('')
   const [bodyPartSortOrder, setBodyPartSortOrder] = useState('desc')
+
+  const handleQuickDateSelect = (range) => {
+    const today = new Date()
+    const todayString = getLocalDateString(today)
+
+    switch (range) {
+      case 'all':
+        updateDateRange('', '')
+        break
+      case 'year':
+        const yearAgo = new Date(today)
+        yearAgo.setFullYear(today.getFullYear() - 1)
+        updateDateRange(getLocalDateString(yearAgo), todayString)
+        break
+      case '3months':
+        const threeMonthsAgo = new Date(today)
+        threeMonthsAgo.setMonth(today.getMonth() - 3)
+        updateDateRange(getLocalDateString(threeMonthsAgo), todayString)
+        break
+      case 'month':
+        const monthAgo = new Date(today)
+        monthAgo.setDate(today.getDate() - 30)
+        updateDateRange(getLocalDateString(monthAgo), todayString)
+        break
+      default:
+        break
+    }
+  }
 
   // Only include completed sessions for progress analytics
   const completedSessions = workoutSessions.filter(s => s.end_time)
@@ -120,45 +154,6 @@ const ProgressPage = () => {
     return Object.values(groupedByDate)
   }
 
-  const getPersonalRecords = () => {
-    const records = {}
-
-    completedSessions.forEach(session => {
-      session.exercises?.forEach(exercise => {
-        const versionId = exercise.exercise_version_id
-        exercise.sets?.forEach(set => {
-          const weight = set.weight || 0
-          const reps = set.reps || 0
-
-          if (!records[versionId]) {
-            records[versionId] = {
-              weight: weight,
-              reps: reps,
-              date: new Date(session.start_time)
-            }
-          } else {
-            // For weighted exercises, track max weight. For bodyweight, track max reps
-            if (weight > records[versionId].weight) {
-              records[versionId] = {
-                weight: weight,
-                reps: reps,
-                date: new Date(session.start_time)
-              }
-            } else if (weight === 0 && records[versionId].weight === 0 && reps > records[versionId].reps) {
-              records[versionId] = {
-                weight: weight,
-                reps: reps,
-                date: new Date(session.start_time)
-              }
-            }
-          }
-        })
-      })
-    })
-
-    return records
-  }
-
   const getWorkoutFrequencyData = () => {
     const weeklyData = {}
 
@@ -174,7 +169,6 @@ const ProgressPage = () => {
     return Object.entries(weeklyData)
       .map(([date, count]) => ({ date: new Date(date), count }))
       .sort((a, b) => a.date - b.date)
-      .slice(-12) // Last 12 weeks
   }
 
   // Get all unique exercise versions that have been performed
@@ -190,34 +184,11 @@ const ProgressPage = () => {
     return exerciseVersions.filter(v => performedIds.has(v.id))
   }
 
-  const getBodyPartFrequency = (startDate, endDate) => {
+  const getBodyPartFrequency = () => {
     const bodyPartCounts = {}
 
-    // Filter sessions by date range
-    const filteredSessions = completedSessions.filter(session => {
-      const sessionDate = new Date(session.start_time)
-
-      // Parse date strings as local dates (not UTC)
-      let start = null
-      if (startDate) {
-        const [year, month, day] = startDate.split('-').map(Number)
-        start = new Date(year, month - 1, day, 0, 0, 0, 0)
-      }
-
-      let end = null
-      if (endDate) {
-        const [year, month, day] = endDate.split('-').map(Number)
-        end = new Date(year, month - 1, day, 23, 59, 59, 999)
-      }
-
-      if (start && sessionDate < start) return false
-      if (end && sessionDate > end) return false
-
-      return true
-    })
-
-    // Count muscle groups from exercises
-    filteredSessions.forEach(session => {
+    // Count muscle groups from exercises (using all completed sessions since they're already filtered by date)
+    completedSessions.forEach(session => {
       session.exercises?.forEach(sessionExercise => {
         const version = exerciseVersions.find(v => v.id === sessionExercise.exercise_version_id)
         if (version) {
@@ -235,46 +206,6 @@ const ProgressPage = () => {
     return Object.entries(bodyPartCounts)
       .map(([bodyPart, count]) => ({ bodyPart, count }))
       .sort((a, b) => bodyPartSortOrder === 'desc' ? b.count - a.count : a.count - b.count)
-  }
-
-  // Helper function to get local date string in YYYY-MM-DD format
-  const getLocalDateString = (date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
-  const handleQuickDateSelect = (range) => {
-    const today = new Date()
-    const todayString = getLocalDateString(today)
-
-    switch (range) {
-      case 'all':
-        setBodyPartStartDate('')
-        setBodyPartEndDate('')
-        break
-      case 'year':
-        const yearAgo = new Date(today)
-        yearAgo.setFullYear(today.getFullYear() - 1)
-        setBodyPartStartDate(getLocalDateString(yearAgo))
-        setBodyPartEndDate(todayString)
-        break
-      case '3months':
-        const threeMonthsAgo = new Date(today)
-        threeMonthsAgo.setMonth(today.getMonth() - 3)
-        setBodyPartStartDate(getLocalDateString(threeMonthsAgo))
-        setBodyPartEndDate(todayString)
-        break
-      case 'month':
-        const monthAgo = new Date(today)
-        monthAgo.setMonth(today.getMonth() - 1)
-        setBodyPartStartDate(getLocalDateString(monthAgo))
-        setBodyPartEndDate(todayString)
-        break
-      default:
-        break
-    }
   }
 
   if (loading) {
@@ -316,15 +247,51 @@ const ProgressPage = () => {
   const stats = calculateOverallStats()
   const performedVersions = getPerformedExerciseVersions()
   const progressData = selectedExerciseVersionId ? getExerciseProgressData(selectedExerciseVersionId) : []
-  const personalRecords = getPersonalRecords()
   const frequencyData = getWorkoutFrequencyData()
-  const bodyPartFrequency = getBodyPartFrequency(bodyPartStartDate, bodyPartEndDate)
+  const bodyPartFrequency = getBodyPartFrequency()
 
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
         Progress Analytics
       </Typography>
+
+      {/* Date Range Filter */}
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Date Range
+        </Typography>
+        <Box sx={{ mb: 3 }}>
+          <ButtonGroup variant="outlined" size="small" sx={{ mb: 2 }}>
+            <Button onClick={() => handleQuickDateSelect('month')}>Last 30 Days</Button>
+            <Button onClick={() => handleQuickDateSelect('3months')}>Last 3 Months</Button>
+            <Button onClick={() => handleQuickDateSelect('year')}>Last Year</Button>
+            <Button onClick={() => handleQuickDateSelect('all')}>All Time</Button>
+          </ButtonGroup>
+        </Box>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Start Date"
+              value={startDate}
+              onChange={(e) => updateDateRange(e.target.value, endDate)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="date"
+              label="End Date"
+              value={endDate}
+              onChange={(e) => updateDateRange(startDate, e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+        </Grid>
+      </Paper>
 
       {/* Overall Statistics */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
@@ -388,7 +355,7 @@ const ProgressPage = () => {
       {frequencyData.length > 0 && (
         <Paper sx={{ p: 3, mb: 4 }}>
           <Typography variant="h6" gutterBottom>
-            Workout Frequency (Last 12 Weeks)
+            Workout Frequency by Week
           </Typography>
           <BarChart
             xAxis={[{
@@ -409,38 +376,6 @@ const ProgressPage = () => {
         <Typography variant="h6" gutterBottom>
           Body Part Frequency
         </Typography>
-
-        <Box sx={{ mb: 3 }}>
-          <ButtonGroup variant="outlined" size="small" sx={{ mb: 2 }}>
-            <Button onClick={() => handleQuickDateSelect('all')}>All Time</Button>
-            <Button onClick={() => handleQuickDateSelect('year')}>Last Year</Button>
-            <Button onClick={() => handleQuickDateSelect('3months')}>Last 3 Months</Button>
-            <Button onClick={() => handleQuickDateSelect('month')}>Last Month</Button>
-          </ButtonGroup>
-        </Box>
-
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              type="date"
-              label="Start Date"
-              value={bodyPartStartDate}
-              onChange={(e) => setBodyPartStartDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              type="date"
-              label="End Date"
-              value={bodyPartEndDate}
-              onChange={(e) => setBodyPartEndDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-        </Grid>
 
         {bodyPartFrequency.length > 0 ? (
           <>
@@ -631,48 +566,6 @@ const ProgressPage = () => {
         </Paper>
       )}
 
-      {/* Personal Records */}
-      {Object.keys(personalRecords).length > 0 && (
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Personal Records
-          </Typography>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Exercise</TableCell>
-                  <TableCell align="right">Weight (lbs)</TableCell>
-                  <TableCell align="right">Reps</TableCell>
-                  <TableCell align="right">Date</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {Object.entries(personalRecords)
-                  .sort((a, b) => {
-                    // Sort by weight first, then by reps for bodyweight exercises
-                    if (b[1].weight !== a[1].weight) {
-                      return b[1].weight - a[1].weight
-                    }
-                    return b[1].reps - a[1].reps
-                  })
-                  .map(([versionId, record]) => (
-                    <TableRow key={versionId}>
-                      <TableCell>{getExerciseVersionName(versionId)}</TableCell>
-                      <TableCell align="right">
-                        {record.weight > 0 ? record.weight : 'Bodyweight'}
-                      </TableCell>
-                      <TableCell align="right">{record.reps}</TableCell>
-                      <TableCell align="right">
-                        {record.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      )}
     </Box>
   )
 }
