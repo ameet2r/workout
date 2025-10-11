@@ -58,6 +58,7 @@ const WorkoutDetailPage = () => {
       // 1. Session exists in context (so we know it's a valid session)
       // 2. Session doesn't have garmin_data yet (it was excluded from list view)
       // 3. Session is completed (only completed sessions can have garmin data)
+      // 4. Not already fetching (prevent duplicate requests)
       if (session && !session.garmin_data && session.end_time && !fetchingFullSession) {
         try {
           setFetchingFullSession(true)
@@ -77,7 +78,10 @@ const WorkoutDetailPage = () => {
     }
 
     fetchMissingData()
-  }, [sessionId, session, fetchingFullSession, updateWorkoutSession])
+    // Only re-run when sessionId changes - don't include session or fetchingFullSession
+    // to avoid infinite loops when updateWorkoutSession modifies the session object
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId])
 
   const handleGarminUploadSuccess = (updatedSession) => {
     // Update just this session in context instead of refetching all sessions

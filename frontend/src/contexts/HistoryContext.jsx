@@ -235,9 +235,16 @@ export const HistoryProvider = ({ children }) => {
 
   // Update an existing workout session
   const updateWorkoutSession = (sessionId, updatedData) => {
-    // Invalidate cache and refetch to ensure consistency
+    // Update the session in place
+    setWorkoutSessions(prev =>
+      prev.map(session =>
+        session.id === sessionId
+          ? { ...session, ...updatedData }
+          : session
+      )
+    )
+    // Invalidate cache so next load fetches fresh data
     invalidateCache()
-    refreshHistory()
   }
 
   // Delete a workout session from the context
