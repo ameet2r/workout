@@ -24,13 +24,29 @@ class TestWorkoutPlanEndpoints:
             "exercise_id": "exercise-1",
             "version_name": "Strength"
         }
-        mock_db.collection.return_value.document.return_value.get.return_value = mock_version_doc
 
+        # Mock for exercise_versions collection
+        mock_version_ref = MagicMock()
+        mock_version_ref.get.return_value = mock_version_doc
+        mock_exercise_versions_collection = MagicMock()
+        mock_exercise_versions_collection.document.return_value = mock_version_ref
+
+        # Mock for workout_plans collection
         mock_doc_ref = MagicMock()
         mock_doc_ref.configure_mock(id="new-plan-id")
         mock_doc_ref.set = MagicMock()
-        mock_db.collection.return_value.document.return_value = mock_doc_ref
+        mock_workout_plans_collection = MagicMock()
+        mock_workout_plans_collection.document.return_value = mock_doc_ref
 
+        # Setup collection method to return appropriate mock based on collection name
+        def collection_side_effect(collection_name):
+            if collection_name == "exercise_versions":
+                return mock_exercise_versions_collection
+            elif collection_name == "workout_plans":
+                return mock_workout_plans_collection
+            return MagicMock()
+
+        mock_db.collection.side_effect = collection_side_effect
         mock_get_db.return_value = mock_db
 
         plan_data = {
