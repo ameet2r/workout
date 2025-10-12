@@ -1,5 +1,5 @@
 # Workout Tracker Frontend
-
+ 
 React + Vite frontend application for tracking workouts, exercises, and fitness progress.
 
 ## Features
