@@ -6,8 +6,8 @@ FROM node:20-slim AS build
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files from frontend directory
+COPY frontend/package*.json ./
 
 # Install dependencies (clean and reproducible)
 RUN npm ci
@@ -15,8 +15,8 @@ RUN npm ci
 # Explicitly install Rollup binary to work around npm optional deps bug
 RUN npm install --no-save @rollup/rollup-linux-x64-gnu
 
-# Copy all source code (excluding files in .dockerignore)
-COPY . .
+# Copy all frontend source code (build context is project root)
+COPY frontend/ .
 
 # Explicitly remove any .env files to prevent Vite from using them
 RUN rm -f .env .env.local .env.production .env.production.local || true
