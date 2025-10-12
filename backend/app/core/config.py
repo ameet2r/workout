@@ -1,12 +1,12 @@
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from typing import List
-import os
 
 
 class Settings(BaseSettings):
-    FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID")
-    FIREBASE_PRIVATE_KEY_PATH: str = os.getenv("FIREBASE_PRIVATE_KEY_PATH")
+    # Pydantic Settings automatically reads from environment variables
+    FIREBASE_PROJECT_ID: str
+    FIREBASE_PRIVATE_KEY_PATH: str
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
