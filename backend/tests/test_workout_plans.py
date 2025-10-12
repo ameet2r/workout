@@ -15,10 +15,22 @@ class TestWorkoutPlanEndpoints:
         """Test successful workout plan creation."""
         # Mock Firestore
         mock_db = MagicMock()
+
+        # Mock exercise_version lookup - should exist and belong to user
+        mock_version_doc = MagicMock()
+        mock_version_doc.exists = True
+        mock_version_doc.to_dict.return_value = {
+            "user_id": "test-user-123",  # Same as auth user
+            "exercise_id": "exercise-1",
+            "version_name": "Strength"
+        }
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_version_doc
+
         mock_doc_ref = MagicMock()
         mock_doc_ref.configure_mock(id="new-plan-id")
         mock_doc_ref.set = MagicMock()
         mock_db.collection.return_value.document.return_value = mock_doc_ref
+
         mock_get_db.return_value = mock_db
 
         plan_data = {
@@ -43,6 +55,88 @@ class TestWorkoutPlanEndpoints:
         assert data["name"] == "Push Day"
         assert data["user_id"] == "test-user-123"
         assert data["id"] == "new-plan-id"
+
+    @patch('app.api.routes.workout_plans.get_firestore_client')
+    def test_create_plan_with_invalid_exercise_version_id(self, mock_get_db, client, auth_headers):
+        """Test that creating a plan with non-existent exercise_version_id fails (security fix)."""
+        # Mock Firestore
+        mock_db = MagicMock()
+
+        # Mock exercise_version lookup - return non-existent
+        mock_version_doc = MagicMock()
+        mock_version_doc.exists = False
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_version_doc
+
+        mock_get_db.return_value = mock_db
+
+        plan_data = {
+            "name": "Test Plan",
+            "exercises": [
+                {
+                    "exercise_version_id": "non-existent-id",
+                    "order": 0,
+                    "planned_sets": 3,
+                    "planned_reps": "8-12"
+                }
+            ]
+        }
+
+        response = client.post("/api/workout-plans/", json=plan_data, headers=auth_headers)
+
+        assert response.status_code == 400
+        assert "not found" in response.json()["detail"].lower()
+
+    @patch('app.api.routes.workout_plans.get_firestore_client')
+    def test_create_plan_with_unauthorized_exercise_version(self, mock_get_db, client, auth_headers):
+        """Test that using another user's exercise_version_id fails (security fix)."""
+        # Mock Firestore
+        mock_db = MagicMock()
+
+        # Mock exercise_version lookup - exists but belongs to different user
+        mock_version_doc = MagicMock()
+        mock_version_doc.exists = True
+        mock_version_doc.to_dict.return_value = {
+            "user_id": "different-user-456",  # Different from test-user-123
+            "exercise_id": "exercise-1",
+            "version_name": "Strength"
+        }
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_version_doc
+
+        mock_get_db.return_value = mock_db
+
+        plan_data = {
+            "name": "Test Plan",
+            "exercises": [
+                {
+                    "exercise_version_id": "other-users-version",
+                    "order": 0,
+                    "planned_sets": 3,
+                    "planned_reps": "8-12"
+                }
+            ]
+        }
+
+        response = client.post("/api/workout-plans/", json=plan_data, headers=auth_headers)
+
+        assert response.status_code == 403
+        assert "not authorized" in response.json()["detail"].lower()
+
+    @patch('app.api.routes.workout_plans.get_firestore_client')
+    def test_create_plan_name_whitespace_only(self, mock_get_db, client, auth_headers):
+        """Test that plan name with only whitespace is rejected (security fix)."""
+        # Mock Firestore
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
+
+        plan_data = {
+            "name": "   ",  # Only whitespace
+            "exercises": []
+        }
+
+        response = client.post("/api/workout-plans/", json=plan_data, headers=auth_headers)
+
+        assert response.status_code == 400
+        assert "cannot be empty" in response.json()["detail"].lower()
 
     @patch('app.api.routes.workout_plans.get_firestore_client')
     def test_create_workout_plan_validation_name_too_long(self, mock_get_db, client, auth_headers):

@@ -16,20 +16,22 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add middleware to handle X-Forwarded-Proto from Railway proxy
-@app.middleware("http")
-async def handle_proxy_headers(request: Request, call_next):
-    # Trust Railway's X-Forwarded-Proto header
-    forwarded_proto = request.headers.get("X-Forwarded-Proto")
-    if forwarded_proto:
-        request.scope["scheme"] = forwarded_proto
-    response = await call_next(request)
-    return response
-
 # Register rate limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# CORS middleware - Parse allowed origins
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
+# Support both comma-separated string and JSON array format
+if allowed_origins_str.startswith("["):
+    # Try to parse as JSON array
+    allowed_origins = json.loads(allowed_origins_str)
+else:
+    # Parse as comma-separated string
+    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",") if origin.strip()]
+
+# Add middleware in order (they execute in reverse order)
+# CORS middleware must be added last so it runs first
 # Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -41,16 +43,17 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Content-Security-Policy"] = "default-src 'self'"
     return response
 
-# CORS middleware
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
-# Support both comma-separated string and JSON array format
-if allowed_origins_str.startswith("["):
-    # Try to parse as JSON array
-    allowed_origins = json.loads(allowed_origins_str)
-else:
-    # Parse as comma-separated string
-    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",") if origin.strip()]
+# Proxy headers middleware
+@app.middleware("http")
+async def handle_proxy_headers(request: Request, call_next):
+    # Trust Railway's X-Forwarded-Proto header
+    forwarded_proto = request.headers.get("X-Forwarded-Proto")
+    if forwarded_proto:
+        request.scope["scheme"] = forwarded_proto
+    response = await call_next(request)
+    return response
 
+# CORS middleware - add last so it executes first
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,

@@ -63,6 +63,26 @@ class TestExerciseEndpoints:
         assert response.status_code == 422
 
     @patch('app.api.routes.exercises.get_firestore_client')
+    def test_create_exercise_validation_name_whitespace_only(self, mock_get_db, client, auth_headers):
+        """Test validation: name contains only whitespace (new security feature)."""
+        # Mock Firestore
+        mock_db = MagicMock()
+        mock_doc_ref = MagicMock()
+        mock_doc_ref.configure_mock(id="new-exercise-id")
+        mock_db.collection.return_value.document.return_value = mock_doc_ref
+        mock_get_db.return_value = mock_db
+
+        exercise_data = {
+            "name": "   ",  # Only whitespace
+            "category": "strength"
+        }
+
+        response = client.post("/api/exercises/", json=exercise_data, headers=auth_headers)
+
+        assert response.status_code == 400
+        assert "cannot be empty" in response.json()["detail"].lower()
+
+    @patch('app.api.routes.exercises.get_firestore_client')
     def test_create_exercise_validation_description_too_long(self, mock_get_db, client, auth_headers):
         """Test validation: description exceeds max length."""
         exercise_data = {
@@ -77,13 +97,14 @@ class TestExerciseEndpoints:
 
     @patch('app.api.routes.exercises.get_firestore_client')
     def test_list_exercises(self, mock_get_db, client, auth_headers, sample_exercise):
-        """Test listing all exercises."""
+        """Test listing exercises - should only return user's own exercises (security fix)."""
         # Mock Firestore
         mock_db = MagicMock()
         mock_doc = MagicMock()
         mock_doc.id = sample_exercise["id"]
         mock_doc.to_dict.return_value = sample_exercise
-        mock_db.collection.return_value.stream.return_value = [mock_doc]
+        # Return exercises filtered by user_id
+        mock_db.collection.return_value.where.return_value.stream.return_value = [mock_doc]
         mock_get_db.return_value = mock_db
 
         response = client.get("/api/exercises/", headers=auth_headers)
@@ -92,6 +113,10 @@ class TestExerciseEndpoints:
         data = response.json()
         assert isinstance(data, list)
         assert len(data) > 0
+        # Verify the where clause was called with user_id filter
+        mock_db.collection.return_value.where.assert_called_once_with(
+            "created_by", "==", "test-user-123"
+        )
 
     @patch('app.api.routes.exercises.get_firestore_client')
     def test_get_exercise_by_id(self, mock_get_db, client, auth_headers, sample_exercise):

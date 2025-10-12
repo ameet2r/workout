@@ -1,12 +1,19 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Request
 from typing import List, Optional
 from app.core.auth import get_current_user
 from app.core.firebase import get_firestore_client
 from app.schemas.workout_session import WorkoutSession, WorkoutSessionCreate, WorkoutSessionUpdate
 from app.utils.garmin_parser import parse_garmin_file, batch_time_series_data, batch_gps_data
+from app.utils.validation import sanitize_text_field, sanitize_html, validate_date_range
+from app.utils.audit_log import log_data_modification, log_data_access
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from datetime import datetime
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/", response_model=WorkoutSession)
@@ -52,6 +59,9 @@ async def list_workout_sessions(
         start_date: Filter sessions on or after this date (YYYY-MM-DD format)
         end_date: Filter sessions on or before this date (YYYY-MM-DD format)
     """
+    # Validate date range
+    validate_date_range(start_date, end_date)
+
     db = get_firestore_client()
 
     # Only fetch fields needed for list view to reduce bandwidth
@@ -172,6 +182,7 @@ async def get_workout_session(
 async def update_workout_session(
     session_id: str,
     session_update: WorkoutSessionUpdate,
+    request: Request,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -190,7 +201,24 @@ async def update_workout_session(
 
     update_data = session_update.model_dump(exclude_unset=True)
 
+    # Sanitize text fields if provided
+    if "name" in update_data and update_data["name"]:
+        update_data["name"] = sanitize_text_field(update_data["name"], "Session name")
+    if "notes" in update_data and update_data["notes"]:
+        update_data["notes"] = sanitize_html(update_data["notes"])
+
     session_ref.update(update_data)
+
+    # Audit log for significant updates
+    if "exercises" in update_data or "garmin_data" in update_data:
+        log_data_modification(
+            user_id=current_user["uid"],
+            resource_type="workout_session",
+            resource_id=session_id,
+            action="UPDATE",
+            details={"fields_updated": list(update_data.keys())},
+            ip_address=request.client.host if request.client else None
+        )
 
     updated_doc = session_ref.get()
     updated_data = updated_doc.to_dict()
@@ -268,13 +296,16 @@ async def delete_workout_session(
 
 
 @router.post("/{session_id}/upload-garmin")
+@limiter.limit("10/hour")  # Rate limit: 10 uploads per hour per IP
 async def upload_garmin_file(
+    request: Request,
     session_id: str,
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Upload and parse a Garmin file (TCX, GPX, or ZIP) for a workout session
+    Upload and parse a Garmin file (TCX, GPX, FIT, or ZIP) for a workout session
+    Rate limited to prevent abuse
     """
     # Validate file size (10 MB limit)
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -395,17 +426,23 @@ async def upload_garmin_file(
         }
 
     except ValueError as e:
+        # User-friendly error for validation issues
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        # Log the full error for debugging
+        # Log the full error for debugging but don't expose to user
         import traceback
         error_details = traceback.format_exc()
-        print(f"Error processing Garmin file: {error_details}")
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+        logger.error(f"Error processing Garmin file for session {session_id}: {error_details}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to process file. Please ensure it's a valid Garmin file and try again. If the problem persists, contact support."
+        )
 
 
 @router.post("/import-garmin", response_model=WorkoutSession)
+@limiter.limit("10/hour")  # Rate limit: 10 imports per hour per IP
 async def import_garmin_workout(
+    request: Request,
     file: UploadFile = File(...),
     notes: str = "",
     current_user: dict = Depends(get_current_user)
@@ -413,6 +450,7 @@ async def import_garmin_workout(
     """
     Create a new workout session and upload Garmin file in a single request.
     This is optimized for importing workouts from Garmin devices.
+    Rate limited to prevent abuse.
     """
     # Validate file size (10 MB limit)
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -529,12 +567,17 @@ async def import_garmin_workout(
         }
 
     except ValueError as e:
+        # User-friendly error for validation issues
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        # Log the full error for debugging but don't expose to user
         import traceback
         error_details = traceback.format_exc()
-        print(f"Error importing Garmin workout: {error_details}")
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+        logger.error(f"Error importing Garmin workout: {error_details}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to import workout. Please ensure it's a valid Garmin file and try again. If the problem persists, contact support."
+        )
 
 
 @router.get("/{session_id}/time-series/{data_type}")

@@ -83,12 +83,15 @@ const ExerciseLibraryPage = () => {
 
   const handleSubmit = async () => {
     try {
-      // Normalize muscle_groups to array of strings
+      // Normalize and trim all text fields
       const normalizedData = {
         ...formData,
+        name: formData.name.trim(),
+        equipment: formData.equipment ? formData.equipment.trim() : '',
+        description: formData.description ? formData.description.trim() : '',
         muscle_groups: formData.muscle_groups.map(mg =>
-          typeof mg === 'string' ? mg : mg.value
-        )
+          typeof mg === 'string' ? mg.trim() : mg.value.trim()
+        ).filter(mg => mg.length > 0) // Remove empty strings after trim
       }
 
       if (editingExercise) {

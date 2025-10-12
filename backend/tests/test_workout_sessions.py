@@ -288,3 +288,52 @@ class TestWorkoutSessionEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert "deleted" in data["message"].lower()
+
+    @patch('app.api.routes.workout_sessions.get_firestore_client')
+    def test_list_sessions_with_invalid_date_range(self, mock_get_db, client, auth_headers):
+        """Test that listing sessions with invalid date range fails (security fix)."""
+        # Mock Firestore
+        mock_db = MagicMock()
+        mock_get_db.return_value = mock_db
+
+        # end_date before start_date - should fail
+        response = client.get(
+            "/api/workout-sessions/?start_date=2024-12-31&end_date=2024-01-01",
+            headers=auth_headers
+        )
+
+        assert response.status_code == 400
+        assert "after or equal to" in response.json()["detail"].lower()
+
+    @patch('app.api.routes.workout_sessions.get_firestore_client')
+    def test_list_sessions_with_valid_date_range(self, mock_get_db, client, auth_headers, sample_workout_session):
+        """Test that listing sessions with valid date range works."""
+        # Mock Firestore
+        mock_db = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.id = sample_workout_session["id"]
+        mock_doc.to_dict.return_value = sample_workout_session
+
+        # Mock the query chain
+        mock_where1 = MagicMock()
+        mock_where2 = MagicMock()
+        mock_where3 = MagicMock()
+        mock_select = MagicMock()
+
+        mock_db.collection.return_value.where.return_value = mock_where1
+        mock_where1.where.return_value = mock_where2
+        mock_where2.where.return_value = mock_where3
+        mock_where3.select.return_value = mock_select
+        mock_select.limit.return_value.stream.return_value = [mock_doc]
+
+        mock_get_db.return_value = mock_db
+
+        # Same dates should work
+        response = client.get(
+            "/api/workout-sessions/?start_date=2024-01-01&end_date=2024-12-31",
+            headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)

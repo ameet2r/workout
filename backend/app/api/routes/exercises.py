@@ -1,18 +1,38 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import List
 from app.core.auth import get_current_user
 from app.core.firebase import get_firestore_client
 from app.schemas.exercise import Exercise, ExerciseCreate, ExerciseUpdate, ExerciseVersion, ExerciseVersionCreate
+from app.utils.validation import sanitize_text_field, sanitize_html
+from app.utils.audit_log import log_data_modification, log_data_access
 from datetime import datetime
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/", response_model=Exercise)
-async def create_exercise(exercise: ExerciseCreate, current_user: dict = Depends(get_current_user)):
+async def create_exercise(
+    exercise: ExerciseCreate,
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Create a new exercise (global exercise library)
     """
+    # Sanitize text fields
+    exercise.name = sanitize_text_field(exercise.name, "Exercise name")
+    if exercise.equipment:
+        exercise.equipment = sanitize_text_field(exercise.equipment, "Equipment")
+    if exercise.description:
+        exercise.description = sanitize_html(exercise.description)
+
+    # Sanitize muscle groups
+    exercise.muscle_groups = [
+        sanitize_text_field(mg, "Muscle group") for mg in exercise.muscle_groups
+    ]
+
     db = get_firestore_client()
     exercise_ref = db.collection("exercises").document()
 
@@ -23,6 +43,16 @@ async def create_exercise(exercise: ExerciseCreate, current_user: dict = Depends
 
     exercise_ref.set(exercise_data)
 
+    # Audit log
+    log_data_modification(
+        user_id=current_user["uid"],
+        resource_type="exercise",
+        resource_id=exercise_ref.id,
+        action="CREATE",
+        details={"name": exercise.name},
+        ip_address=request.client.host if request.client else None
+    )
+
     return {
         "id": exercise_ref.id,
         **exercise_data
@@ -32,10 +62,13 @@ async def create_exercise(exercise: ExerciseCreate, current_user: dict = Depends
 @router.get("/", response_model=List[Exercise])
 async def list_exercises(current_user: dict = Depends(get_current_user)):
     """
-    List all exercises
+    List all exercises created by the current user
     """
     db = get_firestore_client()
-    exercises_ref = db.collection("exercises")
+    # Only return exercises created by the current user
+    exercises_ref = db.collection("exercises").where(
+        "created_by", "==", current_user["uid"]
+    )
     exercises = exercises_ref.stream()
 
     return [
@@ -69,6 +102,7 @@ async def get_exercise(exercise_id: str, current_user: dict = Depends(get_curren
 async def update_exercise(
     exercise_id: str,
     exercise_update: ExerciseUpdate,
+    request: Request,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -86,12 +120,33 @@ async def update_exercise(
     if exercise_data.get("created_by") != current_user["uid"]:
         raise HTTPException(status_code=403, detail="Not authorized to update this exercise")
 
-    # Only update fields that were provided
+    # Sanitize text fields if provided
     update_data = exercise_update.model_dump(exclude_unset=True)
+
+    if "name" in update_data and update_data["name"]:
+        update_data["name"] = sanitize_text_field(update_data["name"], "Exercise name")
+    if "equipment" in update_data and update_data["equipment"]:
+        update_data["equipment"] = sanitize_text_field(update_data["equipment"], "Equipment")
+    if "description" in update_data and update_data["description"]:
+        update_data["description"] = sanitize_html(update_data["description"])
+    if "muscle_groups" in update_data and update_data["muscle_groups"]:
+        update_data["muscle_groups"] = [
+            sanitize_text_field(mg, "Muscle group") for mg in update_data["muscle_groups"]
+        ]
 
     if update_data:
         update_data["updated_at"] = datetime.now()
         exercise_ref.update(update_data)
+
+        # Audit log
+        log_data_modification(
+            user_id=current_user["uid"],
+            resource_type="exercise",
+            resource_id=exercise_id,
+            action="UPDATE",
+            details={"fields_updated": list(update_data.keys())},
+            ip_address=request.client.host if request.client else None
+        )
 
     # Get updated document
     updated_doc = exercise_ref.get()
@@ -105,12 +160,25 @@ async def update_exercise(
 @router.post("/versions", response_model=ExerciseVersion)
 async def create_exercise_version(
     version: ExerciseVersionCreate,
+    request: Request,
     current_user: dict = Depends(get_current_user)
 ):
     """
     Create a new exercise version for the current user
     """
+    # Sanitize text fields
+    version.version_name = sanitize_text_field(version.version_name, "Version name")
+    if version.notes:
+        version.notes = sanitize_html(version.notes)
+
+    # Verify that the exercise exists
     db = get_firestore_client()
+    exercise_ref = db.collection("exercises").document(version.exercise_id)
+    exercise_doc = exercise_ref.get()
+
+    if not exercise_doc.exists:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
     version_ref = db.collection("exercise_versions").document()
 
     version_data = version.model_dump()
@@ -119,6 +187,16 @@ async def create_exercise_version(
     version_data["updated_at"] = datetime.now()
 
     version_ref.set(version_data)
+
+    # Audit log
+    log_data_modification(
+        user_id=current_user["uid"],
+        resource_type="exercise_version",
+        resource_id=version_ref.id,
+        action="CREATE",
+        details={"exercise_id": version.exercise_id, "version_name": version.version_name},
+        ip_address=request.client.host if request.client else None
+    )
 
     return {
         "id": version_ref.id,

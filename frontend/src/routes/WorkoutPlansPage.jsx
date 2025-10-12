@@ -262,10 +262,14 @@ const WorkoutPlansPage = () => {
       setLoading(true)
       setError(null)
 
+      // Trim and validate all text fields
       const payload = {
-        name: planName,
-        notes: planDescription || null,
-        exercises: selectedExercises
+        name: planName.trim(),
+        notes: planDescription ? planDescription.trim() : null,
+        exercises: selectedExercises.map(ex => ({
+          ...ex,
+          instruction: ex.instruction ? ex.instruction.trim() : null
+        }))
       }
 
       if (editingPlanId) {

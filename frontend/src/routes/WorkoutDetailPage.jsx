@@ -112,7 +112,14 @@ const WorkoutDetailPage = () => {
 
   const handleSaveName = async () => {
     try {
-      await authenticatedPatch(`/api/workout-sessions/${sessionId}`, { name: editedName })
+      // Trim the name before saving
+      const trimmedName = editedName.trim()
+      if (!trimmedName) {
+        // Don't save empty names
+        setIsEditingName(false)
+        return
+      }
+      await authenticatedPatch(`/api/workout-sessions/${sessionId}`, { name: trimmedName })
       await refreshHistory()
       setIsEditingName(false)
     } catch (err) {
