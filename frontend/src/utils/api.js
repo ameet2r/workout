@@ -20,7 +20,6 @@ const getAuthHeaders = async () => {
 
 export const authenticatedGet = async (endpoint) => {
   const headers = await getAuthHeaders()
-  console.log(`API_BASE_URL=${API_BASE_URL}`)
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method: 'GET',
     headers,
