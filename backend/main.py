@@ -33,7 +33,15 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 # CORS middleware
-allowed_origins = json.loads(os.getenv("ALLOWED_ORIGINS", "[]"))
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "")
+# Support both comma-separated string and JSON array format
+if allowed_origins_str.startswith("["):
+    # Try to parse as JSON array
+    allowed_origins = json.loads(allowed_origins_str)
+else:
+    # Parse as comma-separated string
+    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
