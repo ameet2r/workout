@@ -18,6 +18,9 @@ RUN npm install --no-save @rollup/rollup-linux-x64-gnu
 # Copy all source code (excluding files in .dockerignore)
 COPY . .
 
+# Explicitly remove any .env files to prevent Vite from using them
+RUN rm -f .env .env.local .env.production .env.production.local || true
+
 # ------------------------------
 # Build-time environment variables
 # ------------------------------
