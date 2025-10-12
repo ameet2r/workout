@@ -18,9 +18,6 @@ RUN npm install --no-save @rollup/rollup-linux-x64-gnu
 # Copy all frontend source code (build context is project root)
 COPY . .
 
-# Explicitly remove any .env files to prevent Vite from using them
-RUN rm -f .env .env.local .env.production .env.production.local || true
-
 # ------------------------------
 # Build-time environment variables
 # ------------------------------
@@ -42,8 +39,18 @@ ENV VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET
 ENV VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID
 ENV VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
 
-# Debug: Show what VITE_BACKEND_API is set to
-RUN echo "Building with VITE_BACKEND_API=${VITE_BACKEND_API}"
+# Debug: Check for .env files and show env vars
+RUN echo "=== Checking for .env files ===" && \
+    ls -la .env* 2>/dev/null || echo "No .env files found" && \
+    echo "=== Environment variables ===" && \
+    echo "VITE_BACKEND_API=${VITE_BACKEND_API}"
+
+# Explicitly remove any .env files to prevent Vite from using them
+RUN rm -f .env .env.local .env.production .env.production.local || true
+
+# Debug: Verify .env files are deleted
+RUN echo "=== After deletion ===" && \
+    ls -la .env* 2>/dev/null || echo "No .env files found (good!)"
 
 # Build the app
 RUN npm run build
