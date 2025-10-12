@@ -17,6 +17,16 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Add middleware to handle X-Forwarded-Proto from Railway proxy
+@app.middleware("http")
+async def handle_proxy_headers(request: Request, call_next):
+    # Trust Railway's X-Forwarded-Proto header
+    forwarded_proto = request.headers.get("X-Forwarded-Proto")
+    if forwarded_proto:
+        request.scope["scheme"] = forwarded_proto
+    response = await call_next(request)
+    return response
+
 # Register rate limiter
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
