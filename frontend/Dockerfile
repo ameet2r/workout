@@ -15,7 +15,7 @@ RUN npm ci
 # Explicitly install Rollup binary to work around npm optional deps bug
 RUN npm install --no-save @rollup/rollup-linux-x64-gnu
 
-# Copy all source code
+# Copy all source code (excluding files in .dockerignore)
 COPY . .
 
 # ------------------------------
