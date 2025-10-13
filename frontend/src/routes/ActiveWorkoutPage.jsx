@@ -51,6 +51,7 @@ const ActiveWorkoutPage = () => {
   const [currentRpe, setCurrentRpe] = useState('')
   const [openCompleteDialog, setOpenCompleteDialog] = useState(false)
   const [openCancelDialog, setOpenCancelDialog] = useState(false)
+  const [completingWorkout, setCompletingWorkout] = useState(false)
   const [oneRmMode, setOneRmMode] = useState(false)
   const [exerciseHistoryCache, setExerciseHistoryCache] = useState({}) // Cache by exercise_version_id
   const [activeTimerIndex, setActiveTimerIndex] = useState(null)
@@ -327,6 +328,8 @@ const ActiveWorkoutPage = () => {
 
   const handleCompleteWorkout = async () => {
     try {
+      setCompletingWorkout(true)
+
       if (isDebugEnabled) {
         logger.info('Workout', 'Completing workout...')
       }
@@ -404,6 +407,7 @@ const ActiveWorkoutPage = () => {
 
       navigate('/history')
     } catch (err) {
+      setCompletingWorkout(false)
       if (isDebugEnabled) {
         logger.error('Workout', 'Error completing workout:', err.message)
       }
@@ -1147,7 +1151,7 @@ const ActiveWorkoutPage = () => {
       )}
 
       {/* Complete Workout Dialog */}
-      <Dialog open={openCompleteDialog} onClose={() => setOpenCompleteDialog(false)}>
+      <Dialog open={openCompleteDialog} onClose={() => !completingWorkout && setOpenCompleteDialog(false)}>
         <DialogTitle>Complete Workout?</DialogTitle>
         <DialogContent>
           <Typography gutterBottom>
@@ -1162,6 +1166,7 @@ const ActiveWorkoutPage = () => {
                     checked={includeHeartRate}
                     onChange={(e) => setIncludeHeartRate(e.target.checked)}
                     color="primary"
+                    disabled={completingWorkout}
                   />
                 }
                 label={
@@ -1180,9 +1185,17 @@ const ActiveWorkoutPage = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenCompleteDialog(false)}>Cancel</Button>
-          <Button onClick={handleCompleteWorkout} variant="contained" color="success">
-            Complete
+          <Button onClick={() => setOpenCompleteDialog(false)} disabled={completingWorkout}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCompleteWorkout}
+            variant="contained"
+            color="success"
+            disabled={completingWorkout}
+            startIcon={completingWorkout ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {completingWorkout ? 'Completing...' : 'Complete'}
           </Button>
         </DialogActions>
       </Dialog>
