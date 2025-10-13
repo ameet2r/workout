@@ -19,7 +19,8 @@ import {
   CardContent,
   Autocomplete,
   IconButton,
-  InputAdornment
+  InputAdornment,
+  CircularProgress
 } from '@mui/material'
 import { Add, Edit, Search } from '@mui/icons-material'
 import { authenticatedGet, authenticatedPost, authenticatedPatch } from '../utils/api'
@@ -30,7 +31,7 @@ import { suggestMuscleGroups } from '../utils/exerciseMuscleMapping'
 const CATEGORIES = ['strength', 'cardio', 'flexibility', 'sports']
 
 const ExerciseLibraryPage = () => {
-  const { exercises, refreshExercises } = useExercises()
+  const { exercises, refreshExercises, loading } = useExercises()
   const [open, setOpen] = useState(false)
   const [editingExercise, setEditingExercise] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -144,7 +145,11 @@ const ExerciseLibraryPage = () => {
         }}
       />
 
-      {exercises.length === 0 ? (
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+          <CircularProgress />
+        </Box>
+      ) : exercises.length === 0 ? (
         <Paper sx={{ p: 3 }}>
           <Typography color="text.secondary">
             No exercises in your library yet. Add exercises to get started!

@@ -14,6 +14,7 @@ const WorkoutPlansPage = () => {
   const [planName, setPlanName] = useState('')
   const [planDescription, setPlanDescription] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingPlans, setLoadingPlans] = useState(true)
   const [error, setError] = useState(null)
   const [selectedExercises, setSelectedExercises] = useState([])
   const [currentExerciseVersion, setCurrentExerciseVersion] = useState(null)
@@ -54,10 +55,13 @@ const WorkoutPlansPage = () => {
 
   const fetchWorkoutPlans = async () => {
     try {
+      setLoadingPlans(true)
       const data = await authenticatedGet('/api/workout-plans')
       setWorkoutPlans(data)
     } catch (err) {
       console.error('Error fetching workout plans:', err)
+    } finally {
+      setLoadingPlans(false)
     }
   }
 
@@ -415,7 +419,11 @@ const WorkoutPlansPage = () => {
         </Button>
       </Box>
 
-      {workoutPlans.length === 0 ? (
+      {loadingPlans ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+          <CircularProgress />
+        </Box>
+      ) : workoutPlans.length === 0 ? (
         <Paper sx={{ p: 3 }}>
           <Typography color="text.secondary">
             No workout plans yet. Create your first plan to get started!
