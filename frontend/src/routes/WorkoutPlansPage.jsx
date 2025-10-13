@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Alert, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel, Grid, Card, CardContent, CardActions, Chip, Checkbox, FormControlLabel, Autocomplete } from '@mui/material'
-import { Add, Delete, PlayArrow, Edit } from '@mui/icons-material'
+import { Add, Delete, PlayArrow, Edit, ArrowUpward, ArrowDownward } from '@mui/icons-material'
 import { authenticatedPost, authenticatedGet, authenticatedPatch } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
 
@@ -232,6 +232,30 @@ const WorkoutPlansPage = () => {
   const handleRemoveExercise = (index) => {
     const updated = selectedExercises.filter((_, i) => i !== index)
     // Reorder remaining exercises
+    const reordered = updated.map((ex, i) => ({ ...ex, order: i }))
+    setSelectedExercises(reordered)
+  }
+
+  const handleMoveExerciseUp = (index) => {
+    if (index === 0) return // Can't move first item up
+    const updated = [...selectedExercises]
+    // Swap with previous exercise
+    const temp = updated[index]
+    updated[index] = updated[index - 1]
+    updated[index - 1] = temp
+    // Update order property
+    const reordered = updated.map((ex, i) => ({ ...ex, order: i }))
+    setSelectedExercises(reordered)
+  }
+
+  const handleMoveExerciseDown = (index) => {
+    if (index === selectedExercises.length - 1) return // Can't move last item down
+    const updated = [...selectedExercises]
+    // Swap with next exercise
+    const temp = updated[index]
+    updated[index] = updated[index + 1]
+    updated[index + 1] = temp
+    // Update order property
     const reordered = updated.map((ex, i) => ({ ...ex, order: i }))
     setSelectedExercises(reordered)
   }
@@ -653,6 +677,21 @@ const WorkoutPlansPage = () => {
                   key={index}
                   secondaryAction={
                     <Box>
+                      <IconButton
+                        onClick={() => handleMoveExerciseUp(index)}
+                        disabled={loading || index === 0}
+                        size="small"
+                      >
+                        <ArrowUpward />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => handleMoveExerciseDown(index)}
+                        disabled={loading || index === selectedExercises.length - 1}
+                        size="small"
+                        sx={{ mr: 1 }}
+                      >
+                        <ArrowDownward />
+                      </IconButton>
                       <IconButton onClick={() => handleEditExercise(index)} disabled={loading} sx={{ mr: 1 }}>
                         <Edit />
                       </IconButton>
