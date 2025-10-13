@@ -57,6 +57,9 @@ const ActiveWorkoutPage = () => {
   const [timeRemaining, setTimeRemaining] = useState(null)
   const timerIntervalRef = useRef(null)
   const audioRef = useRef(null)
+  const [currentSetTimerRuns, setCurrentSetTimerRuns] = useState([]) // Timer runs for the current set
+  const timerStartTimeRef = useRef(null) // Track when current timer started
+  const timerPlannedDurationRef = useRef(null) // Track planned duration of current timer
 
   // Heart rate monitoring
   const { isSupported, isConnected, currentHeartRate, deviceName, error: hrError, connect, disconnect, reconnect } = useHeartRateMonitor()
@@ -284,7 +287,8 @@ const ActiveWorkoutPage = () => {
       weight: currentWeight ? parseFloat(currentWeight) : null,
       completed_at: new Date().toISOString(),
       rpe: currentRpe ? parseInt(currentRpe) : null,
-      notes: null
+      notes: null,
+      timer_runs: currentSetTimerRuns.length > 0 ? currentSetTimerRuns : undefined
     }
 
     const updatedExercises = [...sessionExercises]
@@ -295,10 +299,11 @@ const ActiveWorkoutPage = () => {
     setSessionExercises(updatedExercises)
     // Note: Data is automatically saved to localStorage via useEffect
 
-    // Reset inputs
+    // Reset inputs and timer runs
     setCurrentReps('')
     setCurrentWeight('')
     setCurrentRpe('')
+    setCurrentSetTimerRuns([])
 
     // Keep 1RM mode active if it was on (allows multiple 1RM attempts)
     if (oneRmMode) {
@@ -469,6 +474,7 @@ const ActiveWorkoutPage = () => {
   const handleChangeExercise = (index) => {
     setCurrentExerciseIndex(index)
     setOneRmMode(false) // Reset 1RM mode when switching exercises
+    setCurrentSetTimerRuns([]) // Clear timer runs when switching exercises
 
     // Auto-populate fields from plan
     const exercise = sessionExercises[index]
@@ -488,21 +494,39 @@ const ActiveWorkoutPage = () => {
 
   // Timer management functions
   const handleStartTimer = (timerIndex, duration) => {
-    // Stop any existing timer
+    // Stop any existing timer first
     if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current)
+      handleStopTimer()
     }
 
     setActiveTimerIndex(timerIndex)
     setTimeRemaining(duration)
+    timerStartTimeRef.current = new Date()
+    timerPlannedDurationRef.current = duration
 
     timerIntervalRef.current = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
-          // Timer complete
+          // Timer complete - record the run
           clearInterval(timerIntervalRef.current)
           timerIntervalRef.current = null
           setActiveTimerIndex(null)
+
+          // Record completed timer run - capture values before clearing refs
+          if (timerStartTimeRef.current && timerPlannedDurationRef.current) {
+            const startedAt = timerStartTimeRef.current.toISOString()
+            const plannedDuration = timerPlannedDurationRef.current
+
+            setCurrentSetTimerRuns(prev => [...prev, {
+              started_at: startedAt,
+              duration_seconds: plannedDuration,
+              planned_duration_seconds: plannedDuration,
+              completed: true
+            }])
+          }
+
+          timerStartTimeRef.current = null
+          timerPlannedDurationRef.current = null
           playNotificationSound()
           showNotification()
           return 0
@@ -516,6 +540,23 @@ const ActiveWorkoutPage = () => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current)
       timerIntervalRef.current = null
+
+      // Record stopped timer run (not completed) - capture values before clearing refs
+      if (timerStartTimeRef.current && timerPlannedDurationRef.current && timeRemaining !== null) {
+        const startedAt = timerStartTimeRef.current.toISOString()
+        const actualDuration = timerPlannedDurationRef.current - timeRemaining
+        const plannedDuration = timerPlannedDurationRef.current
+
+        setCurrentSetTimerRuns(prev => [...prev, {
+          started_at: startedAt,
+          duration_seconds: actualDuration,
+          planned_duration_seconds: plannedDuration,
+          completed: false
+        }])
+      }
+
+      timerStartTimeRef.current = null
+      timerPlannedDurationRef.current = null
     }
     setActiveTimerIndex(null)
     setTimeRemaining(null)
@@ -548,15 +589,13 @@ const ActiveWorkoutPage = () => {
     // Try to show browser notification
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification('Timer Complete!', {
-        body: 'Your exercise timer has finished.',
-        icon: '/favicon.ico'
+        body: 'Your exercise timer has finished.'
       })
     } else if ('Notification' in window && Notification.permission !== 'denied') {
       Notification.requestPermission().then(permission => {
         if (permission === 'granted') {
           new Notification('Timer Complete!', {
-            body: 'Your exercise timer has finished.',
-            icon: '/favicon.ico'
+            body: 'Your exercise timer has finished.'
           })
         }
       })
@@ -590,6 +629,19 @@ const ActiveWorkoutPage = () => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const formatTimerRunDuration = (seconds) => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+
+    const parts = []
+    if (hours > 0) parts.push(`${hours}h`)
+    if (minutes > 0) parts.push(`${minutes}m`)
+    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`)
+
+    return parts.join(' ')
   }
 
   if (loading) {
@@ -1010,10 +1062,10 @@ const ActiveWorkoutPage = () => {
                       variant="contained"
                       startIcon={<Add />}
                       onClick={handleAddSet}
-                      disabled={!currentReps}
+                      disabled={!currentReps || activeTimerIndex !== null}
                       fullWidth
                     >
-                      Add Set
+                      {activeTimerIndex !== null ? 'Timer Running...' : 'Add Set'}
                     </Button>
                   </Grid>
                 </Grid>
@@ -1036,13 +1088,26 @@ const ActiveWorkoutPage = () => {
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {currentExercise.sets.map((set, index) => (
                       <Paper key={index} sx={{ p: 2, bgcolor: 'background.default' }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <Box sx={{ flex: 1 }}>
                             <Typography variant="body1">
                               Set {index + 1}: {set.reps} reps
                               {set.weight && ` @ ${set.weight}lbs`}
                               {set.rpe && ` (RPE ${set.rpe})`}
                             </Typography>
+                            {set.timer_runs && set.timer_runs.length > 0 && (
+                              <Box sx={{ mt: 1, pl: 2, borderLeft: 2, borderColor: 'primary.light' }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                                  Timer History:
+                                </Typography>
+                                {set.timer_runs.map((run, runIndex) => (
+                                  <Typography key={runIndex} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                    Run {runIndex + 1}: {formatTimerRunDuration(run.duration_seconds)} of {formatTimerRunDuration(run.planned_duration_seconds)}
+                                    {run.completed ? ' ✓' : ' (stopped early)'}
+                                  </Typography>
+                                ))}
+                              </Box>
+                            )}
                           </Box>
                           <IconButton
                             size="small"

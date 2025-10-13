@@ -62,6 +62,19 @@ const ExerciseEditCard = ({
     return type === 'total' ? `${timeStr} total` : `${timeStr} per set`
   }
 
+  const formatTimerRunDuration = (seconds) => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+
+    const parts = []
+    if (hours > 0) parts.push(`${hours}h`)
+    if (minutes > 0) parts.push(`${minutes}m`)
+    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`)
+
+    return parts.join(' ')
+  }
+
   return (
     <Paper sx={{ p: 2, mb: 2, bgcolor: 'background.default', border: '1px solid', borderColor: 'divider' }}>
       {/* Header with exercise name and actions */}
@@ -304,11 +317,23 @@ const ExerciseEditCard = ({
                         </Typography>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
                           {session.sets.map((set, setIdx) => (
-                            <Typography key={setIdx} variant="body2">
-                              Set {setIdx + 1}: {set.reps} reps
-                              {set.weight && ` @ ${set.weight}lbs`}
-                              {set.rpe && ` (RPE ${set.rpe})`}
-                            </Typography>
+                            <Box key={setIdx}>
+                              <Typography variant="body2">
+                                Set {setIdx + 1}: {set.reps} reps
+                                {set.weight && ` @ ${set.weight}lbs`}
+                                {set.rpe && ` (RPE ${set.rpe})`}
+                              </Typography>
+                              {set.timer_runs && set.timer_runs.length > 0 && (
+                                <Box sx={{ pl: 1.5, mt: 0.5 }}>
+                                  {set.timer_runs.map((run, runIdx) => (
+                                    <Typography key={runIdx} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                      Timer {runIdx + 1}: {formatTimerRunDuration(run.duration_seconds)} / {formatTimerRunDuration(run.planned_duration_seconds)}
+                                      {run.completed ? ' ✓' : ' (stopped)'}
+                                    </Typography>
+                                  ))}
+                                </Box>
+                              )}
+                            </Box>
                           ))}
                         </Box>
                       </Paper>

@@ -139,6 +139,19 @@ const WorkoutDetailPage = () => {
     return `${exercise?.name || 'Unknown'}${version.version_name !== 'Default' ? ` - ${version.version_name}` : ''}`
   }
 
+  const formatTimerRunDuration = (seconds) => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+
+    const parts = []
+    if (hours > 0) parts.push(`${hours}h`)
+    if (minutes > 0) parts.push(`${minutes}m`)
+    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`)
+
+    return parts.join(' ')
+  }
+
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true)
   }
@@ -734,21 +747,34 @@ const WorkoutDetailPage = () => {
                         <Box
                           key={setIndex}
                           sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
                             p: 1,
                             bgcolor: setIndex % 2 === 0 ? 'background.default' : 'transparent',
                             borderRadius: 1
                           }}
                         >
-                          <Typography variant="body1">
-                            <strong>Set {setIndex + 1}</strong>
-                          </Typography>
-                          <Typography variant="body1">
-                            {set.reps} reps
-                            {set.weight && ` @ ${set.weight} lbs`}
-                            {set.rpe && ` • RPE ${set.rpe}`}
-                          </Typography>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: set.timer_runs?.length > 0 ? 1 : 0 }}>
+                            <Typography variant="body1">
+                              <strong>Set {setIndex + 1}</strong>
+                            </Typography>
+                            <Typography variant="body1">
+                              {set.reps} reps
+                              {set.weight && ` @ ${set.weight} lbs`}
+                              {set.rpe && ` • RPE ${set.rpe}`}
+                            </Typography>
+                          </Box>
+                          {set.timer_runs && set.timer_runs.length > 0 && (
+                            <Box sx={{ pl: 2, borderLeft: 2, borderColor: 'primary.light' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                                Timer History:
+                              </Typography>
+                              {set.timer_runs.map((run, runIndex) => (
+                                <Typography key={runIndex} variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                  Run {runIndex + 1}: {formatTimerRunDuration(run.duration_seconds)} of {formatTimerRunDuration(run.planned_duration_seconds)}
+                                  {run.completed ? ' ✓' : ' (stopped early)'}
+                                </Typography>
+                              ))}
+                            </Box>
+                          )}
                         </Box>
                       ))}
                     </Box>

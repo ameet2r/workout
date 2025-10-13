@@ -3,12 +3,20 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 
+class TimerRun(BaseModel):
+    started_at: datetime
+    duration_seconds: int = Field(..., ge=0, le=86400)  # Actual duration (max 24 hours)
+    planned_duration_seconds: int = Field(..., ge=0, le=86400)  # Original timer duration
+    completed: bool = False  # Whether timer ran to completion or was stopped early
+
+
 class SetData(BaseModel):
     reps: int = Field(..., ge=0, le=1000)
     weight: Optional[float] = Field(None, ge=0, le=10000)
     completed_at: datetime
     rpe: Optional[int] = Field(None, ge=1, le=10)  # Rate of Perceived Exertion (1-10)
     notes: Optional[str] = Field(None, max_length=500)
+    timer_runs: Optional[List['TimerRun']] = Field(default_factory=list, max_length=20)  # Timer tracking
 
 
 class SessionExercise(BaseModel):
