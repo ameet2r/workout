@@ -8,7 +8,7 @@ from app.utils.validation import sanitize_text_field, sanitize_html, validate_da
 from app.utils.audit_log import log_data_modification, log_data_access
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 router = APIRouter()
@@ -73,17 +73,20 @@ async def list_workout_sessions(
     # Apply date filters if provided
     if start_date:
         try:
-            start_dt = datetime.fromisoformat(start_date)
+            # Parse date and treat as start of day in UTC
+            start_dt = datetime.fromisoformat(start_date + "T00:00:00")
             query = query.where("start_time", ">=", start_dt)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD")
 
     if end_date:
         try:
-            # Set end of day for end_date to include the entire day
-            end_dt = datetime.fromisoformat(end_date)
-            end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
-            query = query.where("start_time", "<=", end_dt)
+            # Parse date and set to end of day in UTC to include the entire day
+            # Add one day and use start of that day to avoid timezone edge cases
+            end_dt = datetime.fromisoformat(end_date + "T00:00:00")
+            # Add one day to include all of the end_date
+            end_dt = end_dt + timedelta(days=1)
+            query = query.where("start_time", "<", end_dt)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
 
