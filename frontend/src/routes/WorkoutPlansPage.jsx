@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Alert, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel, Grid, Card, CardContent, CardActions, Chip, Checkbox, FormControlLabel, Autocomplete } from '@mui/material'
-import { Add, Delete, PlayArrow, Edit, ArrowUpward, ArrowDownward } from '@mui/icons-material'
+import { Add, Delete, PlayArrow, Edit, ArrowUpward, ArrowDownward, EditNote } from '@mui/icons-material'
 import { authenticatedPost, authenticatedGet, authenticatedPatch } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
+import ExerciseEditCard from '../components/ExerciseEditCard'
 
 const WorkoutPlansPage = () => {
   const navigate = useNavigate()
@@ -30,6 +31,9 @@ const WorkoutPlansPage = () => {
   const [editingPlanId, setEditingPlanId] = useState(null)
   const [editingExerciseIndex, setEditingExerciseIndex] = useState(null)
   const [exerciseHistory, setExerciseHistory] = useState({ sessions: [], estimated_1rm: null, actual_1rm: null })
+  const [editAllMode, setEditAllMode] = useState(false)
+  const [editingExercises, setEditingExercises] = useState([])
+  const [exerciseHistories, setExerciseHistories] = useState({})
 
   useEffect(() => {
     fetchWorkoutPlans()
@@ -229,6 +233,75 @@ const WorkoutPlansPage = () => {
     setExerciseHistory({ sessions: [], estimated_1rm: null, actual_1rm: null })
   }
 
+  const handleEnterEditAllMode = async () => {
+    setEditAllMode(true)
+    setEditingExercises(JSON.parse(JSON.stringify(selectedExercises))) // Deep copy
+
+    // Pre-fetch histories for all exercises
+    const histories = {}
+    for (const ex of selectedExercises) {
+      try {
+        const history = await authenticatedGet(`/api/workout-sessions/exercise-history/${ex.exercise_version_id}`)
+        histories[ex.exercise_version_id] = history
+      } catch (err) {
+        console.error('Error fetching exercise history:', err)
+        histories[ex.exercise_version_id] = { sessions: [], estimated_1rm: null, actual_1rm: null }
+      }
+    }
+    setExerciseHistories(histories)
+  }
+
+  const handleExitEditAllMode = () => {
+    if (JSON.stringify(editingExercises) !== JSON.stringify(selectedExercises)) {
+      if (!window.confirm('You have unsaved changes. Are you sure you want to exit edit mode?')) {
+        return
+      }
+    }
+    setEditAllMode(false)
+    setEditingExercises([])
+    setExerciseHistories({})
+  }
+
+  const handleSaveAllChanges = () => {
+    setSelectedExercises(editingExercises)
+    setEditAllMode(false)
+    setEditingExercises([])
+    setExerciseHistories({})
+  }
+
+  const handleUpdateExercise = (index, field, value) => {
+    const updated = [...editingExercises]
+    updated[index] = { ...updated[index], [field]: value }
+    setEditingExercises(updated)
+  }
+
+  const handleRemoveExerciseFromEditAll = (index) => {
+    const updated = editingExercises.filter((_, i) => i !== index)
+    // Reorder remaining exercises
+    const reordered = updated.map((ex, i) => ({ ...ex, order: i }))
+    setEditingExercises(reordered)
+  }
+
+  const handleMoveExerciseUpInEditAll = (index) => {
+    if (index === 0) return
+    const updated = [...editingExercises]
+    const temp = updated[index]
+    updated[index] = updated[index - 1]
+    updated[index - 1] = temp
+    const reordered = updated.map((ex, i) => ({ ...ex, order: i }))
+    setEditingExercises(reordered)
+  }
+
+  const handleMoveExerciseDownInEditAll = (index) => {
+    if (index === editingExercises.length - 1) return
+    const updated = [...editingExercises]
+    const temp = updated[index]
+    updated[index] = updated[index + 1]
+    updated[index + 1] = temp
+    const reordered = updated.map((ex, i) => ({ ...ex, order: i }))
+    setEditingExercises(reordered)
+  }
+
   const handleRemoveExercise = (index) => {
     const updated = selectedExercises.filter((_, i) => i !== index)
     // Reorder remaining exercises
@@ -265,6 +338,16 @@ const WorkoutPlansPage = () => {
     if (!version) return 'Loading...'
     const exercise = exercises.find(e => e.id === version.exercise_id)
     return `${exercise?.name || 'Unknown'}${version.version_name !== 'Default' ? ` - ${version.version_name}` : ''}`
+  }
+
+  const getExerciseDetails = (versionId) => {
+    const version = exerciseVersions.find(v => v.id === versionId)
+    if (!version) return { name: 'Loading...', description: null }
+    const exercise = exercises.find(e => e.id === version.exercise_id)
+    return {
+      name: `${exercise?.name || 'Unknown'}${version.version_name !== 'Default' ? ` - ${version.version_name}` : ''}`,
+      description: exercise?.description || null
+    }
   }
 
   const formatTimerDisplay = (duration, type) => {
@@ -670,67 +753,125 @@ const WorkoutPlansPage = () => {
             )}
           </Box>
 
-          {selectedExercises.length > 0 && (
-            <List dense>
-              {selectedExercises.map((exercise, index) => (
-                <ListItem
-                  key={index}
-                  secondaryAction={
-                    <Box>
-                      <IconButton
-                        onClick={() => handleMoveExerciseUp(index)}
-                        disabled={loading || index === 0}
-                        size="small"
-                      >
-                        <ArrowUpward />
-                      </IconButton>
-                      <IconButton
-                        onClick={() => handleMoveExerciseDown(index)}
-                        disabled={loading || index === selectedExercises.length - 1}
-                        size="small"
-                        sx={{ mr: 1 }}
-                      >
-                        <ArrowDownward />
-                      </IconButton>
-                      <IconButton onClick={() => handleEditExercise(index)} disabled={loading} sx={{ mr: 1 }}>
-                        <Edit />
-                      </IconButton>
-                      <IconButton edge="end" onClick={() => handleRemoveExercise(index)} disabled={loading}>
-                        <Delete />
-                      </IconButton>
-                    </Box>
-                  }
-                  sx={{ bgcolor: 'background.default', mb: 1, borderRadius: 1 }}
+          {selectedExercises.length > 0 && !editAllMode && (
+            <>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<EditNote />}
+                  onClick={handleEnterEditAllMode}
+                  disabled={loading}
+                  size="small"
                 >
-                  <ListItemText
-                    primary={`${index + 1}. ${getExerciseVersionName(exercise.exercise_version_id)}`}
-                    secondary={
-                      <>
-                        {`${exercise.planned_sets ? `${exercise.planned_sets} sets` : ''} ${exercise.planned_reps ? `× ${exercise.planned_reps} reps` : ''} ${exercise.is_bodyweight ? '@ Body weight' : exercise.planned_weight ? `@ ${exercise.planned_weight}lbs` : ''}`.trim() || 'No targets set'}
-                        {exercise.timers && exercise.timers.length > 0 && (
-                          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {exercise.timers.map((timer, idx) => (
-                              <Chip
-                                key={idx}
-                                label={formatTimerDisplay(timer.duration, timer.type)}
-                                size="small"
-                                variant="outlined"
-                              />
-                            ))}
-                          </Box>
-                        )}
-                        {exercise.instruction && (
-                          <Typography component="span" variant="body2" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
-                            {exercise.instruction}
-                          </Typography>
-                        )}
-                      </>
+                  Edit All Exercises
+                </Button>
+              </Box>
+              <List dense>
+                {selectedExercises.map((exercise, index) => (
+                  <ListItem
+                    key={index}
+                    secondaryAction={
+                      <Box>
+                        <IconButton
+                          onClick={() => handleMoveExerciseUp(index)}
+                          disabled={loading || index === 0}
+                          size="small"
+                        >
+                          <ArrowUpward />
+                        </IconButton>
+                        <IconButton
+                          onClick={() => handleMoveExerciseDown(index)}
+                          disabled={loading || index === selectedExercises.length - 1}
+                          size="small"
+                          sx={{ mr: 1 }}
+                        >
+                          <ArrowDownward />
+                        </IconButton>
+                        <IconButton onClick={() => handleEditExercise(index)} disabled={loading} sx={{ mr: 1 }}>
+                          <Edit />
+                        </IconButton>
+                        <IconButton edge="end" onClick={() => handleRemoveExercise(index)} disabled={loading}>
+                          <Delete />
+                        </IconButton>
+                      </Box>
                     }
-                    secondaryTypographyProps={{ component: 'div' }}
+                    sx={{ bgcolor: 'background.default', mb: 1, borderRadius: 1 }}
+                  >
+                    <ListItemText
+                      primary={`${index + 1}. ${getExerciseVersionName(exercise.exercise_version_id)}`}
+                      secondary={
+                        <>
+                          {`${exercise.planned_sets ? `${exercise.planned_sets} sets` : ''} ${exercise.planned_reps ? `× ${exercise.planned_reps} reps` : ''} ${exercise.is_bodyweight ? '@ Body weight' : exercise.planned_weight ? `@ ${exercise.planned_weight}lbs` : ''}`.trim() || 'No targets set'}
+                          {exercise.timers && exercise.timers.length > 0 && (
+                            <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {exercise.timers.map((timer, idx) => (
+                                <Chip
+                                  key={idx}
+                                  label={formatTimerDisplay(timer.duration, timer.type)}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              ))}
+                            </Box>
+                          )}
+                          {exercise.instruction && (
+                            <Typography component="span" variant="body2" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                              {exercise.instruction}
+                            </Typography>
+                          )}
+                        </>
+                      }
+                      secondaryTypographyProps={{ component: 'div' }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
+
+          {/* Edit All Mode */}
+          {editAllMode && (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Editing all exercises - make changes below and click "Save All Changes" when done
+              </Alert>
+              {editingExercises.map((exercise, index) => {
+                const exerciseDetails = getExerciseDetails(exercise.exercise_version_id)
+                return (
+                  <ExerciseEditCard
+                    key={index}
+                    exercise={exercise}
+                    index={index}
+                    totalExercises={editingExercises.length}
+                    exerciseName={exerciseDetails.name}
+                    exerciseDescription={exerciseDetails.description}
+                    onUpdate={handleUpdateExercise}
+                    onRemove={handleRemoveExerciseFromEditAll}
+                    onMoveUp={handleMoveExerciseUpInEditAll}
+                    onMoveDown={handleMoveExerciseDownInEditAll}
+                    history={exerciseHistories[exercise.exercise_version_id]}
+                    disabled={loading}
                   />
-                </ListItem>
-              ))}
-            </List>
+                )
+              })}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  onClick={handleExitEditAllMode}
+                  disabled={loading}
+                >
+                  Exit Edit Mode
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleSaveAllChanges}
+                  disabled={loading}
+                >
+                  Save All Changes
+                </Button>
+              </Box>
+            </Box>
           )}
         </DialogContent>
         <DialogActions>
