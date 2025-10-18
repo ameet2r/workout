@@ -9,7 +9,7 @@ import {
   LinearProgress
 } from '@mui/material'
 import { Upload, CheckCircle } from '@mui/icons-material'
-import { getAuth } from 'firebase/auth'
+import { authenticatedFormDataPost } from '../../utils/api'
 
 const GarminUpload = ({ sessionId, onUploadSuccess }) => {
   const [uploading, setUploading] = useState(false)
@@ -54,31 +54,15 @@ const GarminUpload = ({ sessionId, onUploadSuccess }) => {
     setUploadProgress(0)
 
     try {
-      const auth = getAuth()
-      const token = await auth.currentUser.getIdToken()
-
       const formData = new FormData()
       formData.append('file', selectedFile)
 
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_API}/api/workout-sessions/${sessionId}/upload-garmin`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        }
+      const updatedSession = await authenticatedFormDataPost(
+        `/api/workout-sessions/${sessionId}/upload-garmin`,
+        formData
       )
 
       setUploadProgress(100)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Upload failed')
-      }
-
-      const updatedSession = await response.json()
 
       // Count data points for success message
       const hasGarminData = updatedSession.garmin_data

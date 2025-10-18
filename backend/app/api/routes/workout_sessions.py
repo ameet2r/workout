@@ -121,6 +121,82 @@ async def list_workout_sessions(
     return result
 
 
+@router.get("/cardio-summary/list")
+async def list_cardio_sessions(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user_with_app_check)
+):
+    """
+    List workout sessions with garmin_data summary (excludes time-series data for performance)
+
+    Returns only sessions that have garmin_data, with summary metrics but without
+    heavy time-series data like GPS coordinates, heart rate readings, etc.
+
+    Args:
+        start_date: Filter sessions on or after this date (YYYY-MM-DD format)
+        end_date: Filter sessions on or before this date (YYYY-MM-DD format)
+    """
+    # Validate date range
+    validate_date_range(start_date, end_date)
+
+    db = get_firestore_client()
+
+    query = db.collection("workout_sessions").where(
+        "user_id", "==", current_user["uid"]
+    )
+
+    # Apply date filters if provided
+    if start_date:
+        try:
+            start_dt = datetime.fromisoformat(start_date + "T00:00:00")
+            query = query.where("start_time", ">=", start_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD")
+
+    if end_date:
+        try:
+            end_dt = datetime.fromisoformat(end_date + "T00:00:00")
+            end_dt = end_dt + timedelta(days=1)
+            query = query.where("start_time", "<", end_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
+
+    # Select fields including garmin_data
+    sessions_ref = query.select([
+        "user_id",
+        "start_time",
+        "end_time",
+        "garmin_data"
+    ])
+
+    sessions = sessions_ref.stream()
+
+    result = []
+    for doc in sessions:
+        session_data = doc.to_dict()
+
+        # Only include sessions that have garmin_data
+        if not session_data.get("garmin_data"):
+            continue
+
+        # Convert Firestore timestamps to ISO format strings
+        if "start_time" in session_data and session_data["start_time"]:
+            session_data["start_time"] = session_data["start_time"].isoformat() if hasattr(session_data["start_time"], "isoformat") else session_data["start_time"]
+        if "end_time" in session_data and session_data["end_time"]:
+            session_data["end_time"] = session_data["end_time"].isoformat() if hasattr(session_data["end_time"], "isoformat") else session_data["end_time"]
+
+        result.append({
+            "id": doc.id,
+            **session_data
+        })
+
+    # Sort by start_time in descending order (most recent first)
+    result.sort(key=lambda x: x.get("start_time", ""), reverse=True)
+
+    return result
+
+
 @router.get("/{session_id}", response_model=WorkoutSession)
 async def get_workout_session(
     session_id: str,

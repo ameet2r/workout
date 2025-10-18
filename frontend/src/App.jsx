@@ -12,6 +12,7 @@ import ActiveWorkoutPage from './routes/ActiveWorkoutPage'
 import HistoryPage from './routes/HistoryPage'
 import WorkoutDetailPage from './routes/WorkoutDetailPage'
 import ProgressPage from './routes/ProgressPage'
+import CardioProgressPage from './routes/CardioProgressPage'
 import ExerciseLibraryPage from './routes/ExerciseLibraryPage'
 import ProfilePage from './routes/ProfilePage'
 
@@ -39,6 +40,7 @@ function App() {
                   <Route path="history" element={<HistoryPage />} />
                   <Route path="history/:sessionId" element={<WorkoutDetailPage />} />
                   <Route path="progress" element={<ProgressPage />} />
+                  <Route path="progress/cardio" element={<CardioProgressPage />} />
                   <Route path="exercises" element={<ExerciseLibraryPage />} />
                   <Route path="profile" element={<ProfilePage />} />
                 </Route>

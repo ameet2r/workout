@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
@@ -26,8 +26,13 @@ import {
 } from '@mui/material'
 import { LineChart } from '@mui/x-charts/LineChart'
 import { BarChart } from '@mui/x-charts/BarChart'
+import DirectionsRunIcon from '@mui/icons-material/DirectionsRun'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useExercises } from '../contexts/ExerciseContext'
 import { useHistory } from '../contexts/HistoryContext'
+import { useNavigate } from 'react-router-dom'
+import { authenticatedGet } from '../utils/api'
 import BodyVisualization2D from '../components/BodyVisualization2D'
 import FrequencyLegend from '../components/FrequencyLegend'
 
@@ -42,8 +47,36 @@ const ProgressPage = () => {
     updateDateRange,
     getLocalDateString
   } = useHistory()
+  const navigate = useNavigate()
   const [selectedExerciseVersionId, setSelectedExerciseVersionId] = useState('')
   const [bodyPartSortOrder, setBodyPartSortOrder] = useState('desc')
+  const [cardioSessions, setCardioSessions] = useState([])
+  const [cardioLoading, setCardioLoading] = useState(false)
+
+  // Fetch cardio sessions with garmin data
+  useEffect(() => {
+    const fetchCardioSessions = async () => {
+      if (!startDate || !endDate) return
+
+      setCardioLoading(true)
+      try {
+        const params = new URLSearchParams()
+        if (startDate) params.append('start_date', startDate)
+        if (endDate) params.append('end_date', endDate)
+        const queryString = params.toString() ? `?${params.toString()}` : ''
+
+        const sessions = await authenticatedGet(`/api/workout-sessions/cardio-summary/list${queryString}`)
+        setCardioSessions(sessions)
+      } catch (err) {
+        console.error('Error fetching cardio sessions:', err)
+        setCardioSessions([])
+      } finally {
+        setCardioLoading(false)
+      }
+    }
+
+    fetchCardioSessions()
+  }, [startDate, endDate])
 
   const handleQuickDateSelect = (range) => {
     const today = new Date()
@@ -208,6 +241,34 @@ const ProgressPage = () => {
       .sort((a, b) => bodyPartSortOrder === 'desc' ? b.count - a.count : a.count - b.count)
   }
 
+  const getCardioStats = () => {
+    if (cardioSessions.length === 0) {
+      return null
+    }
+
+    let totalDistance = 0
+    let recentVO2Max = null
+
+    cardioSessions.forEach(session => {
+      const data = session.garmin_data
+      totalDistance += data?.distance || 0
+
+      // Get most recent VO2 max
+      if (data?.vo2max && (!recentVO2Max || new Date(session.start_time) > new Date(recentVO2Max.date))) {
+        recentVO2Max = {
+          value: data.vo2max,
+          date: session.start_time,
+        }
+      }
+    })
+
+    return {
+      count: cardioSessions.length,
+      totalDistance: totalDistance / 1000, // Convert to km
+      recentVO2Max,
+    }
+  }
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
@@ -249,6 +310,7 @@ const ProgressPage = () => {
   const progressData = selectedExerciseVersionId ? getExerciseProgressData(selectedExerciseVersionId) : []
   const frequencyData = getWorkoutFrequencyData()
   const bodyPartFrequency = getBodyPartFrequency()
+  const cardioStats = getCardioStats()
 
   return (
     <Box>
@@ -350,6 +412,78 @@ const ProgressPage = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Cardio Overview */}
+      {cardioStats && (
+        <Paper sx={{ p: 3, mb: 4 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Box display="flex" alignItems="center">
+              <DirectionsRunIcon sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="h6">Cardio Overview</Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              size="small"
+              endIcon={<ArrowForwardIcon />}
+              onClick={() => navigate('/progress/cardio')}
+            >
+              View Details
+            </Button>
+          </Box>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={4}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom variant="body2">
+                    Cardio Activities
+                  </Typography>
+                  <Typography variant="h5">
+                    {cardioStats.count}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography color="text.secondary" gutterBottom variant="body2">
+                    Total Distance
+                  </Typography>
+                  <Typography variant="h5">
+                    {cardioStats.totalDistance.toFixed(2)} km
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Box display="flex" alignItems="center" mb={1}>
+                    <TrendingUpIcon sx={{ mr: 0.5, fontSize: 20, color: 'text.secondary' }} />
+                    <Typography color="text.secondary" gutterBottom variant="body2">
+                      Recent VO2 Max
+                    </Typography>
+                  </Box>
+                  {cardioStats.recentVO2Max ? (
+                    <>
+                      <Typography variant="h5">
+                        {cardioStats.recentVO2Max.value.toFixed(1)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        ml/kg/min
+                      </Typography>
+                    </>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      No data
+                    </Typography>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
 
       {/* Workout Frequency Chart */}
       {frequencyData.length > 0 && (

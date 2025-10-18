@@ -12,8 +12,8 @@ import {
   LinearProgress
 } from '@mui/material'
 import { Upload, CheckCircle } from '@mui/icons-material'
-import { getAuth } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
+import { authenticatedFormDataPost } from '../../utils/api'
 
 const ImportGarminDialog = ({ open, onClose, onSuccess }) => {
   const navigate = useNavigate()
@@ -56,34 +56,14 @@ const ImportGarminDialog = ({ open, onClose, onSuccess }) => {
     setUploadProgress(30)
 
     try {
-      const auth = getAuth()
-      const token = await auth.currentUser.getIdToken()
-
       // Single request to create session and upload Garmin file
       setUploadProgress(50)
       const formData = new FormData()
       formData.append('file', selectedFile)
       formData.append('notes', `Imported from ${selectedFile.name}`)
 
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_API}/api/workout-sessions/import-garmin`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        }
-      )
+      const newSession = await authenticatedFormDataPost('/api/workout-sessions/import-garmin', formData)
 
-      setUploadProgress(90)
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Import failed')
-      }
-
-      const newSession = await response.json()
       setUploadProgress(100)
 
       // Success! Navigate to the new session
