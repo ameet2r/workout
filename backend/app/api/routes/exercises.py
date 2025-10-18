@@ -242,3 +242,65 @@ async def list_exercise_versions(exercise_id: str, current_user: dict = Depends(
         }
         for doc in versions
     ]
+
+
+@router.delete("/{exercise_id}")
+async def delete_exercise(
+    exercise_id: str,
+    request: Request,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Delete an exercise (only if not used in any workout plans)
+    """
+    db = get_firestore_client()
+    exercise_ref = db.collection("exercises").document(exercise_id)
+    exercise_doc = exercise_ref.get()
+
+    if not exercise_doc.exists:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    # Authorization check: only creator can delete
+    exercise_data = exercise_doc.to_dict()
+    if exercise_data.get("created_by") != current_user["uid"]:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this exercise")
+
+    # Check if exercise is used in any workout plans
+    # First, get all exercise versions for this exercise
+    exercise_versions_ref = db.collection("exercise_versions").where(
+        "exercise_id", "==", exercise_id
+    )
+    exercise_versions = list(exercise_versions_ref.stream())
+    exercise_version_ids = [version.id for version in exercise_versions]
+
+    # Check if any of these versions are used in workout plans
+    if exercise_version_ids:
+        plans_ref = db.collection("workout_plans").where(
+            "user_id", "==", current_user["uid"]
+        )
+        plans = plans_ref.stream()
+
+        for plan_doc in plans:
+            plan_data = plan_doc.to_dict()
+            exercises_in_plan = plan_data.get("exercises", [])
+            for exercise in exercises_in_plan:
+                if exercise.get("exercise_version_id") in exercise_version_ids:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Cannot delete exercise: it is used in one or more workout plans"
+                    )
+
+    # Delete the exercise
+    exercise_ref.delete()
+
+    # Audit log
+    log_data_modification(
+        user_id=current_user["uid"],
+        resource_type="exercise",
+        resource_id=exercise_id,
+        action="DELETE",
+        details={"name": exercise_data.get("name")},
+        ip_address=request.client.host if request.client else None
+    )
+
+    return {"message": "Exercise deleted successfully"}

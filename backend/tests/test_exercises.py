@@ -217,6 +217,133 @@ class TestExerciseEndpoints:
 
         assert response.status_code == 403
 
+    @patch('app.api.routes.exercises.get_firestore_client')
+    def test_delete_exercise_success(self, mock_get_db, client, auth_headers, sample_exercise):
+        """Test successful exercise deletion."""
+        # Mock Firestore
+        mock_db = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        sample_exercise_copy = sample_exercise.copy()
+        sample_exercise_copy["created_by"] = "test-user-123"
+        mock_doc.to_dict.return_value = sample_exercise_copy
+
+        mock_doc_ref = MagicMock()
+        mock_doc_ref.get.return_value = mock_doc
+        mock_doc_ref.delete = MagicMock()
+
+        mock_db.collection.return_value.document.return_value = mock_doc_ref
+        # Mock empty exercise versions query
+        mock_db.collection.return_value.where.return_value.stream.return_value = []
+        mock_get_db.return_value = mock_db
+
+        response = client.delete(
+            f"/api/exercises/{sample_exercise['id']}",
+            headers=auth_headers
+        )
+
+        assert response.status_code == 200
+        assert response.json()["message"] == "Exercise deleted successfully"
+        mock_doc_ref.delete.assert_called_once()
+
+    @patch('app.api.routes.exercises.get_firestore_client')
+    def test_delete_exercise_not_found(self, mock_get_db, client, auth_headers):
+        """Test deleting non-existent exercise."""
+        # Mock Firestore
+        mock_db = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.exists = False
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
+        mock_get_db.return_value = mock_db
+
+        response = client.delete("/api/exercises/non-existent-id", headers=auth_headers)
+
+        assert response.status_code == 404
+
+    @patch('app.api.routes.exercises.get_firestore_client')
+    def test_delete_exercise_unauthorized(self, mock_get_db, client, sample_exercise):
+        """Test deleting exercise as non-creator (should fail)."""
+        from app.core.auth import get_current_user
+        from main import app
+
+        # Override authentication for different user
+        async def different_user():
+            return {
+                "uid": "different-user-123",
+                "email": "different@example.com"
+            }
+        app.dependency_overrides[get_current_user] = different_user
+
+        # Mock Firestore
+        mock_db = MagicMock()
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = sample_exercise
+
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
+        mock_get_db.return_value = mock_db
+
+        response = client.delete(
+            f"/api/exercises/{sample_exercise['id']}",
+            headers={"Authorization": "Bearer different-token"}
+        )
+
+        assert response.status_code == 403
+
+    @patch('app.api.routes.exercises.get_firestore_client')
+    def test_delete_exercise_in_use(self, mock_get_db, client, auth_headers, sample_exercise):
+        """Test deleting exercise that is used in workout plans (should fail)."""
+        # Mock Firestore
+        mock_db = MagicMock()
+
+        # Mock exercise doc
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        sample_exercise_copy = sample_exercise.copy()
+        sample_exercise_copy["created_by"] = "test-user-123"
+        mock_doc.to_dict.return_value = sample_exercise_copy
+
+        # Mock exercise version
+        mock_version = MagicMock()
+        mock_version.id = "version-1"
+
+        # Mock workout plan with the exercise
+        mock_plan = MagicMock()
+        mock_plan_data = {
+            "user_id": "test-user-123",
+            "exercises": [
+                {"exercise_version_id": "version-1"}
+            ]
+        }
+        mock_plan.to_dict.return_value = mock_plan_data
+
+        mock_doc_ref = MagicMock()
+        mock_doc_ref.get.return_value = mock_doc
+
+        # Setup collection calls
+        def collection_side_effect(name):
+            mock_coll = MagicMock()
+            if name == "exercises":
+                mock_coll.document.return_value = mock_doc_ref
+            elif name == "exercise_versions":
+                # Return version when queried
+                mock_coll.where.return_value.stream.return_value = [mock_version]
+            elif name == "workout_plans":
+                # Return plan that uses the exercise
+                mock_coll.where.return_value.stream.return_value = [mock_plan]
+            return mock_coll
+
+        mock_db.collection.side_effect = collection_side_effect
+        mock_get_db.return_value = mock_db
+
+        response = client.delete(
+            f"/api/exercises/{sample_exercise['id']}",
+            headers=auth_headers
+        )
+
+        assert response.status_code == 409
+        assert "used in one or more workout plans" in response.json()["detail"]
+
 
 class TestExerciseVersionEndpoints:
     """Test exercise version CRUD operations."""

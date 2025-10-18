@@ -20,10 +20,11 @@ import {
   Autocomplete,
   IconButton,
   InputAdornment,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from '@mui/material'
-import { Add, Edit, Search } from '@mui/icons-material'
-import { authenticatedGet, authenticatedPost, authenticatedPatch } from '../utils/api'
+import { Add, Edit, Search, Delete } from '@mui/icons-material'
+import { authenticatedGet, authenticatedPost, authenticatedPatch, authenticatedDelete } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
 import { getMuscleGroupOptions } from '../data/muscleGroups'
 import { suggestMuscleGroups } from '../utils/exerciseMuscleMapping'
@@ -42,6 +43,9 @@ const ExerciseLibraryPage = () => {
     category: 'strength',
     description: ''
   })
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   // Auto-suggest muscle groups when exercise name changes (only for new exercises)
   useEffect(() => {
@@ -105,6 +109,38 @@ const ExerciseLibraryPage = () => {
       await refreshExercises()
     } catch (error) {
       console.error('Error saving exercise:', error)
+    }
+  }
+
+  const handleDeleteClick = () => {
+    setDeleteError(null)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false)
+    setDeleteError(null)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!editingExercise) return
+
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await authenticatedDelete(`/api/exercises/${editingExercise.id}`)
+      setDeleteDialogOpen(false)
+      handleClose()
+      await refreshExercises()
+    } catch (err) {
+      // Check if it's a 409 Conflict error (exercise in use)
+      if (err.message.includes('used in one or more workout plans')) {
+        setDeleteError('Cannot delete this exercise because it is used in one or more of your workout plans. Please remove it from your plans first.')
+      } else {
+        setDeleteError(err.message)
+      }
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -300,10 +336,54 @@ const ExerciseLibraryPage = () => {
           />
         </DialogContent>
         <DialogActions>
+          {editingExercise && (
+            <Button
+              onClick={handleDeleteClick}
+              color="error"
+              sx={{ mr: 'auto' }}
+            >
+              Delete Exercise
+            </Button>
+          )}
           <Button onClick={handleClose}>Cancel</Button>
           <Button onClick={handleSubmit} variant="contained" disabled={!formData.name}>
             {editingExercise ? 'Save Changes' : 'Add Exercise'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => !deleting && handleDeleteCancel()}
+      >
+        <DialogTitle>Delete Exercise</DialogTitle>
+        <DialogContent>
+          {deleteError ? (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {deleteError}
+            </Alert>
+          ) : (
+            <Typography>
+              Are you sure you want to delete this exercise? This action cannot be undone.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} disabled={deleting}>
+            {deleteError ? 'Close' : 'Cancel'}
+          </Button>
+          {!deleteError && (
+            <Button
+              onClick={handleDeleteConfirm}
+              color="error"
+              variant="contained"
+              disabled={deleting}
+              startIcon={deleting ? <CircularProgress size={20} color="inherit" /> : null}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

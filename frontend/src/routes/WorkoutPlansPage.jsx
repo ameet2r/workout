@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Typography, Button, Paper, Dialog, DialogTitle, DialogContent, DialogActions, TextField, CircularProgress, Alert, List, ListItem, ListItemText, IconButton, Select, MenuItem, FormControl, InputLabel, Grid, Card, CardContent, CardActions, Chip, Checkbox, FormControlLabel, Autocomplete } from '@mui/material'
 import { Add, Delete, PlayArrow, Edit, ArrowUpward, ArrowDownward, EditNote } from '@mui/icons-material'
-import { authenticatedPost, authenticatedGet, authenticatedPatch } from '../utils/api'
+import { authenticatedPost, authenticatedGet, authenticatedPatch, authenticatedDelete } from '../utils/api'
 import { useExercises } from '../contexts/ExerciseContext'
 import ExerciseEditCard from '../components/ExerciseEditCard'
 
@@ -35,6 +35,8 @@ const WorkoutPlansPage = () => {
   const [editAllMode, setEditAllMode] = useState(false)
   const [editingExercises, setEditingExercises] = useState([])
   const [exerciseHistories, setExerciseHistories] = useState({})
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     fetchWorkoutPlans()
@@ -420,6 +422,31 @@ const WorkoutPlansPage = () => {
       navigate(`/workout/${session.id}`)
     } catch (err) {
       console.error('Error starting workout:', err)
+    }
+  }
+
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!editingPlanId) return
+
+    setDeleting(true)
+    try {
+      await authenticatedDelete(`/api/workout-plans/${editingPlanId}`)
+      setDeleteDialogOpen(false)
+      handleClose()
+      await fetchWorkoutPlans()
+    } catch (err) {
+      setError(err.message)
+      setDeleteDialogOpen(false)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -908,6 +935,16 @@ const WorkoutPlansPage = () => {
           )}
         </DialogContent>
         <DialogActions>
+          {editingPlanId && (
+            <Button
+              onClick={handleDeleteClick}
+              color="error"
+              disabled={loading}
+              sx={{ mr: 'auto' }}
+            >
+              Delete Plan
+            </Button>
+          )}
           <Button onClick={handleClose} disabled={loading}>Cancel</Button>
           <Button
             onClick={handleSubmit}
@@ -916,6 +953,31 @@ const WorkoutPlansPage = () => {
             startIcon={loading && <CircularProgress size={20} />}
           >
             {editingPlanId ? 'Save' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => !deleting && handleDeleteCancel()}
+      >
+        <DialogTitle>Delete Workout Plan</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this workout plan? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} disabled={deleting}>Cancel</Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
