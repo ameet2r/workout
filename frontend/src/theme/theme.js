@@ -1,17 +1,17 @@
 import { createTheme } from '@mui/material/styles'
 
-export const theme = createTheme({
+const getDesignTokens = (mode) => ({
   palette: {
-    mode: 'light',
+    mode,
     primary: {
-      main: '#1976d2',
+      main: mode === 'light' ? '#1976d2' : '#90caf9',
     },
     secondary: {
       main: '#dc004e',
     },
     background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
+      default: mode === 'light' ? '#f5f5f5' : '#121212',
+      paper: mode === 'light' ? '#ffffff' : '#1e1e1e',
     },
   },
   typography: {
@@ -37,3 +37,8 @@ export const theme = createTheme({
     },
   },
 })
+
+export const getTheme = (mode) => createTheme(getDesignTokens(mode))
+
+// Export default light theme for backward compatibility
+export const theme = getTheme('light')

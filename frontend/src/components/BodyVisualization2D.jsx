@@ -1,6 +1,8 @@
 import { Box, Typography, Paper, Grid } from '@mui/material'
+import { useTheme } from '../context/ThemeContext'
 
 const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
+  const { mode } = useTheme()
   // Ensure we have valid data
   if (!Array.isArray(bodyPartFrequency) || bodyPartFrequency.length === 0) {
     return (
@@ -79,7 +81,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Shoulders {frequencyMap['Shoulders'] ? `(${frequencyMap['Shoulders']})` : ''}
             </Typography>
           </Box>
@@ -98,7 +100,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Chest {frequencyMap['Chest'] ? `(${frequencyMap['Chest']})` : ''}
             </Typography>
           </Box>
@@ -115,7 +117,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Back {getBodyPartFrequency({ muscles: ['Back', 'Lats', 'Traps', 'Back - Lats', 'Back - Traps', 'Back - Upper Back', 'Back - Lower Back'] }) ? `(${getBodyPartFrequency({ muscles: ['Back', 'Lats', 'Traps', 'Back - Lats', 'Back - Traps', 'Back - Upper Back', 'Back - Lower Back'] })})` : ''}
             </Typography>
           </Box>
@@ -134,7 +136,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Biceps {getFrequencyWithFallback('Biceps', 'Arms - Biceps') ? `(${getFrequencyWithFallback('Biceps', 'Arms - Biceps')})` : ''}
             </Typography>
           </Box>
@@ -151,7 +153,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Triceps {getFrequencyWithFallback('Triceps', 'Arms - Triceps') ? `(${getFrequencyWithFallback('Triceps', 'Arms - Triceps')})` : ''}
             </Typography>
           </Box>
@@ -168,7 +170,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Forearms {getFrequencyWithFallback('Forearms', 'Arms - Forearms') ? `(${getFrequencyWithFallback('Forearms', 'Arms - Forearms')})` : ''}
             </Typography>
           </Box>
@@ -192,7 +194,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Abs {getFrequencyWithFallback('Abs', 'Core - Abs') ? `(${getFrequencyWithFallback('Abs', 'Core - Abs')})` : ''}
             </Typography>
           </Box>
@@ -209,7 +211,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Obliques {getFrequencyWithFallback('Obliques', 'Core - Obliques') ? `(${getFrequencyWithFallback('Obliques', 'Core - Obliques')})` : ''}
             </Typography>
           </Box>
@@ -226,7 +228,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Lower Back {getFrequencyWithFallback('Lower Back', 'Back - Lower Back') ? `(${getFrequencyWithFallback('Lower Back', 'Back - Lower Back')})` : ''}
             </Typography>
           </Box>
@@ -250,7 +252,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Glutes {getFrequencyWithFallback('Glutes', 'Legs - Glutes') ? `(${getFrequencyWithFallback('Glutes', 'Legs - Glutes')})` : ''}
             </Typography>
           </Box>
@@ -267,7 +269,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Hip Flexors {getFrequencyWithFallback('Hip Flexors', 'Legs - Hip Flexors') ? `(${getFrequencyWithFallback('Hip Flexors', 'Legs - Hip Flexors')})` : ''}
             </Typography>
           </Box>
@@ -284,7 +286,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Quads {getFrequencyWithFallback('Quadriceps', 'Quads', 'Legs - Quads') ? `(${getFrequencyWithFallback('Quadriceps', 'Quads', 'Legs - Quads')})` : ''}
             </Typography>
           </Box>
@@ -301,7 +303,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Hamstrings {getFrequencyWithFallback('Hamstrings', 'Legs - Hamstrings') ? `(${getFrequencyWithFallback('Hamstrings', 'Legs - Hamstrings')})` : ''}
             </Typography>
           </Box>
@@ -318,7 +320,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Adductors {getFrequencyWithFallback('Adductors', 'Hip Adductors', 'Legs - Hip Adductors') ? `(${getFrequencyWithFallback('Adductors', 'Hip Adductors', 'Legs - Hip Adductors')})` : ''}
             </Typography>
           </Box>
@@ -335,7 +337,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Abductors {getFrequencyWithFallback('Abductors', 'Hip Abductors', 'Legs - Hip Abductors') ? `(${getFrequencyWithFallback('Abductors', 'Hip Abductors', 'Legs - Hip Abductors')})` : ''}
             </Typography>
           </Box>
@@ -352,7 +354,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
               border: '1px solid #ccc'
             }}
           >
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ color: mode === 'dark' ? 'black' : 'inherit' }}>
               Calves {frequencyMap['Calves'] ? `(${frequencyMap['Calves']})` : ''}
             </Typography>
           </Box>

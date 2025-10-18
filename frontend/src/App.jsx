@@ -1,10 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { ThemeProvider } from '@mui/material/styles'
-import CssBaseline from '@mui/material/CssBaseline'
+import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { ExerciseProvider } from './contexts/ExerciseContext'
 import { HistoryProvider } from './contexts/HistoryContext'
-import { theme } from './theme/theme'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import Layout from './components/layout/Layout'
 import LoginPage from './routes/LoginPage'
@@ -19,8 +17,7 @@ import ProfilePage from './routes/ProfilePage'
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ThemeProvider>
       <AuthProvider>
         <ExerciseProvider>
           <HistoryProvider>

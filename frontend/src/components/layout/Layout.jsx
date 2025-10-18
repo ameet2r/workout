@@ -14,6 +14,7 @@ import {
   IconButton,
   Divider,
   Chip,
+  Tooltip,
 } from '@mui/material'
 import {
   Menu as MenuIcon,
@@ -25,8 +26,11 @@ import {
   AccountCircle,
   Logout,
   PlayArrow,
+  Brightness4,
+  Brightness7,
 } from '@mui/icons-material'
 import { useAuth } from '../../contexts/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import { authenticatedGet } from '../../utils/api'
 
 const drawerWidth = 240
@@ -46,6 +50,7 @@ const Layout = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { logout, currentUser } = useAuth()
+  const { mode, toggleTheme } = useTheme()
 
   useEffect(() => {
     fetchActiveWorkout()
@@ -129,6 +134,16 @@ const Layout = () => {
       </List>
       <Divider />
       <List>
+        <ListItem disablePadding>
+          <ListItemButton onClick={toggleTheme}>
+            <ListItemIcon>
+              <Tooltip title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+                {mode === 'light' ? <Brightness4 /> : <Brightness7 />}
+              </Tooltip>
+            </ListItemIcon>
+            <ListItemText primary={mode === 'light' ? 'Dark Mode' : 'Light Mode'} />
+          </ListItemButton>
+        </ListItem>
         <ListItem disablePadding>
           <ListItemButton onClick={handleLogout}>
             <ListItemIcon>
