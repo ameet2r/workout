@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_with_app_check
 from app.core.firebase import get_firestore_client
 from datetime import datetime, timedelta
 
@@ -12,7 +12,7 @@ async def get_exercise_progress(
     exercise_version_id: str,
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Get progress for a specific exercise version over time
@@ -74,7 +74,7 @@ async def get_exercise_progress(
 @router.get("/records/{exercise_version_id}")
 async def get_personal_records(
     exercise_version_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Get personal records for a specific exercise version
@@ -130,7 +130,7 @@ async def get_personal_records(
 @router.get("/summary")
 async def get_workout_summary(
     days: int = Query(30, description="Number of days to look back"),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Get workout summary for the last N days

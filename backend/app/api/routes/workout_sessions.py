@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Request
 from typing import List, Optional
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_with_app_check
 from app.core.firebase import get_firestore_client
 from app.schemas.workout_session import WorkoutSession, WorkoutSessionCreate, WorkoutSessionUpdate
 from app.utils.garmin_parser import parse_garmin_file, batch_time_series_data, batch_gps_data
@@ -19,7 +19,7 @@ limiter = Limiter(key_func=get_remote_address)
 @router.post("/", response_model=WorkoutSession)
 async def create_workout_session(
     session: WorkoutSessionCreate,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Start a new workout session (or create a past workout with custom start_time)
@@ -49,7 +49,7 @@ async def list_workout_sessions(
     limit: int = 50,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     List workout sessions for the current user (excludes garmin_data and notes for performance)
@@ -125,7 +125,7 @@ async def list_workout_sessions(
 async def get_workout_session(
     session_id: str,
     fields: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Get workout session by ID
@@ -186,7 +186,7 @@ async def update_workout_session(
     session_id: str,
     session_update: WorkoutSessionUpdate,
     request: Request,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Update a workout session (add sets, complete workout, add Garmin data)
@@ -241,7 +241,7 @@ async def update_workout_session(
 @router.post("/{session_id}/complete", response_model=WorkoutSession)
 async def complete_workout_session(
     session_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Mark a workout session as complete
@@ -277,7 +277,7 @@ async def complete_workout_session(
 @router.delete("/{session_id}")
 async def delete_workout_session(
     session_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Delete a workout session
@@ -304,7 +304,7 @@ async def upload_garmin_file(
     request: Request,
     session_id: str,
     file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Upload and parse a Garmin file (TCX, GPX, FIT, or ZIP) for a workout session
@@ -448,7 +448,7 @@ async def import_garmin_workout(
     request: Request,
     file: UploadFile = File(...),
     notes: str = "",
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Create a new workout session and upload Garmin file in a single request.
@@ -587,7 +587,7 @@ async def import_garmin_workout(
 async def get_time_series_data(
     session_id: str,
     data_type: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Get time-series data for a workout session
@@ -640,7 +640,7 @@ async def get_time_series_data(
 @router.delete("/{session_id}/garmin-data")
 async def delete_garmin_data(
     session_id: str,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Delete all Garmin data (summary and time-series) from a workout session
@@ -683,7 +683,7 @@ async def upload_heart_rate_batch(
     session_id: str,
     batch_index: int,
     batch_data: dict,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Upload a batch of heart rate readings to the time_series subcollection
@@ -728,7 +728,7 @@ async def upload_heart_rate_batch(
 async def get_exercise_history(
     exercise_version_id: str,
     limit: int = 5,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Get workout history for a specific exercise version including 1RM calculations

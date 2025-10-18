@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import List
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_with_app_check
 from app.core.firebase import get_firestore_client
 from app.schemas.workout_plan import WorkoutPlan, WorkoutPlanCreate, WorkoutPlanUpdate
 from app.utils.validation import sanitize_text_field, sanitize_html
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 async def create_workout_plan(
     plan: WorkoutPlanCreate,
     request: Request,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Create a new workout plan with validation
@@ -78,7 +78,7 @@ async def create_workout_plan(
 
 
 @router.get("/", response_model=List[WorkoutPlan])
-async def list_workout_plans(current_user: dict = Depends(get_current_user)):
+async def list_workout_plans(current_user: dict = Depends(get_current_user_with_app_check)):
     """
     List all workout plans for the current user
     """
@@ -99,7 +99,7 @@ async def list_workout_plans(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/{plan_id}", response_model=WorkoutPlan)
-async def get_workout_plan(plan_id: str, current_user: dict = Depends(get_current_user)):
+async def get_workout_plan(plan_id: str, current_user: dict = Depends(get_current_user_with_app_check)):
     """
     Get workout plan by ID
     """
@@ -125,7 +125,7 @@ async def update_workout_plan(
     plan_id: str,
     plan_update: WorkoutPlanUpdate,
     request: Request,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Update a workout plan with validation
@@ -199,7 +199,7 @@ async def update_workout_plan(
 async def delete_workout_plan(
     plan_id: str,
     request: Request,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Delete a workout plan

@@ -319,8 +319,9 @@ class TestWorkoutPlanEndpoints:
     @patch('app.api.routes.workout_plans.get_firestore_client')
     def test_get_workout_plan_unauthorized(self, mock_get_db, client, sample_workout_plan):
         """Test accessing another user's workout plan (should fail)."""
-        from app.core.auth import get_current_user
+        from app.core.auth import get_current_user_with_app_check
         from main import app
+        from tests.conftest import mock_get_current_user_with_app_check_impl
 
         # Override authentication for different user
         async def different_user():
@@ -328,22 +329,27 @@ class TestWorkoutPlanEndpoints:
                 "uid": "different-user-123",
                 "email": "different@example.com"
             }
-        app.dependency_overrides[get_current_user] = different_user
 
-        # Mock Firestore
-        mock_db = MagicMock()
-        mock_doc = MagicMock()
-        mock_doc.exists = True
-        mock_doc.to_dict.return_value = sample_workout_plan
-        mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
-        mock_get_db.return_value = mock_db
+        try:
+            app.dependency_overrides[get_current_user_with_app_check] = different_user
 
-        response = client.get(
-            f"/api/workout-plans/{sample_workout_plan['id']}",
-            headers={"Authorization": "Bearer different-token"}
-        )
+            # Mock Firestore
+            mock_db = MagicMock()
+            mock_doc = MagicMock()
+            mock_doc.exists = True
+            mock_doc.to_dict.return_value = sample_workout_plan
+            mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
+            mock_get_db.return_value = mock_db
 
-        assert response.status_code == 403
+            response = client.get(
+                f"/api/workout-plans/{sample_workout_plan['id']}",
+                headers={"Authorization": "Bearer different-token", "X-Firebase-AppCheck": "mock-token"}
+            )
+
+            assert response.status_code == 403
+        finally:
+            # Restore original mock
+            app.dependency_overrides[get_current_user_with_app_check] = mock_get_current_user_with_app_check_impl
 
     @patch('app.api.routes.workout_plans.get_firestore_client')
     def test_delete_workout_plan(self, mock_get_db, client, auth_headers, sample_workout_plan):

@@ -7,10 +7,17 @@ from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch, MagicMock
 from main import app
 from datetime import datetime
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, get_current_user_with_app_check
 
 # Mock get_current_user to return a test user
 async def mock_get_current_user_impl():
+    return {
+        "uid": "test-user-123",
+        "email": "test@example.com"
+    }
+
+# Mock get_current_user_with_app_check to return a test user (same as above)
+async def mock_get_current_user_with_app_check_impl():
     return {
         "uid": "test-user-123",
         "email": "test@example.com"
@@ -22,8 +29,11 @@ def mock_firebase():
     """Mock Firebase Admin SDK and authentication for all tests."""
     # Use FastAPI's dependency override
     app.dependency_overrides[get_current_user] = mock_get_current_user_impl
+    app.dependency_overrides[get_current_user_with_app_check] = mock_get_current_user_with_app_check_impl
 
-    yield
+    # Mock the verify_app_check_token function
+    with patch('app.core.firebase.verify_app_check_token', return_value={"app_id": "test-app"}):
+        yield
 
     # Clean up
     app.dependency_overrides.clear()
@@ -43,7 +53,10 @@ def client(mock_firebase):
 @pytest.fixture
 def auth_headers():
     """Authentication headers for requests."""
-    return {"Authorization": "Bearer mock-token"}
+    return {
+        "Authorization": "Bearer mock-token",
+        "X-Firebase-AppCheck": "mock-app-check-token"
+    }
 
 @pytest.fixture
 def test_user():

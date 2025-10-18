@@ -1,9 +1,10 @@
-import { auth } from '../config/firebase'
+import { auth, appCheck } from '../config/firebase'
+import { getToken } from 'firebase/app-check'
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_API
 
 /**
- * Get authentication headers with Firebase ID token
+ * Get authentication headers with Firebase ID token and App Check token
  */
 const getAuthHeaders = async () => {
   const user = auth.currentUser
@@ -12,9 +13,21 @@ const getAuthHeaders = async () => {
   }
 
   const token = await user.getIdToken()
+
+  // Get App Check token
+  let appCheckToken = null
+  try {
+    const appCheckTokenResponse = await getToken(appCheck, /* forceRefresh= */ false)
+    appCheckToken = appCheckTokenResponse.token
+  } catch (error) {
+    console.error('Failed to get App Check token:', error)
+    throw new Error('Failed to verify app authenticity. Please try again.')
+  }
+
   return {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
+    'X-Firebase-AppCheck': appCheckToken,
   }
 }
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_with_app_check
 from app.core.firebase import get_firestore_client
 from app.schemas.user import User, UserUpdate
 from datetime import datetime
@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.get("/{user_id}", response_model=User)
-async def get_user(user_id: str, current_user: dict = Depends(get_current_user)):
+async def get_user(user_id: str, current_user: dict = Depends(get_current_user_with_app_check)):
     """
     Get user by ID (only own profile for now)
     """
@@ -32,7 +32,7 @@ async def get_user(user_id: str, current_user: dict = Depends(get_current_user))
 async def update_user(
     user_id: str,
     user_update: UserUpdate,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Update user profile

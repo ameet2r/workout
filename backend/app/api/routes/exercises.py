@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import List
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_with_app_check
 from app.core.firebase import get_firestore_client
 from app.schemas.exercise import Exercise, ExerciseCreate, ExerciseUpdate, ExerciseVersion, ExerciseVersionCreate
 from app.utils.validation import sanitize_text_field, sanitize_html
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 async def create_exercise(
     exercise: ExerciseCreate,
     request: Request,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Create a new exercise (global exercise library)
@@ -60,7 +60,7 @@ async def create_exercise(
 
 
 @router.get("/", response_model=List[Exercise])
-async def list_exercises(current_user: dict = Depends(get_current_user)):
+async def list_exercises(current_user: dict = Depends(get_current_user_with_app_check)):
     """
     List all exercises created by the current user
     """
@@ -81,7 +81,7 @@ async def list_exercises(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/{exercise_id}", response_model=Exercise)
-async def get_exercise(exercise_id: str, current_user: dict = Depends(get_current_user)):
+async def get_exercise(exercise_id: str, current_user: dict = Depends(get_current_user_with_app_check)):
     """
     Get exercise by ID
     """
@@ -103,7 +103,7 @@ async def update_exercise(
     exercise_id: str,
     exercise_update: ExerciseUpdate,
     request: Request,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Update an exercise by ID (only creator can update)
@@ -161,7 +161,7 @@ async def update_exercise(
 async def create_exercise_version(
     version: ExerciseVersionCreate,
     request: Request,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Create a new exercise version for the current user
@@ -205,7 +205,7 @@ async def create_exercise_version(
 
 
 @router.get("/versions/my-versions", response_model=List[ExerciseVersion])
-async def list_my_exercise_versions(current_user: dict = Depends(get_current_user)):
+async def list_my_exercise_versions(current_user: dict = Depends(get_current_user_with_app_check)):
     """
     List all exercise versions for the current user
     """
@@ -223,7 +223,7 @@ async def list_my_exercise_versions(current_user: dict = Depends(get_current_use
 
 
 @router.get("/{exercise_id}/versions", response_model=List[ExerciseVersion])
-async def list_exercise_versions(exercise_id: str, current_user: dict = Depends(get_current_user)):
+async def list_exercise_versions(exercise_id: str, current_user: dict = Depends(get_current_user_with_app_check)):
     """
     List all versions of a specific exercise for the current user
     """
@@ -248,7 +248,7 @@ async def list_exercise_versions(exercise_id: str, current_user: dict = Depends(
 async def delete_exercise(
     exercise_id: str,
     request: Request,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user_with_app_check)
 ):
     """
     Delete an exercise (only if not used in any workout plans)

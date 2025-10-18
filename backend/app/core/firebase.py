@@ -47,3 +47,14 @@ def verify_firebase_token(token: str) -> dict:
         return decoded_token
     except Exception as e:
         raise ValueError(f"Invalid token: {str(e)}")
+
+
+def verify_app_check_token(token: str) -> dict:
+    """Verify Firebase App Check token and return decoded token"""
+    try:
+        initialize_firebase()
+        from firebase_admin import app_check
+        decoded_token = app_check.verify_token(token)
+        return decoded_token
+    except Exception as e:
+        raise ValueError(f"Invalid App Check token: {str(e)}")

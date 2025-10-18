@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user_with_app_check
 from app.core.firebase import get_firestore_client
 from app.schemas.user import User, UserCreate, UserUpdate
 from datetime import datetime
@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.post("/register", response_model=User)
-async def register_user(user_data: UserCreate, current_user: dict = Depends(get_current_user)):
+async def register_user(user_data: UserCreate, current_user: dict = Depends(get_current_user_with_app_check)):
     """
     Register a new user in Firestore after Firebase Auth signup
     """
@@ -35,7 +35,7 @@ async def register_user(user_data: UserCreate, current_user: dict = Depends(get_
 
 
 @router.get("/me", response_model=User)
-async def get_current_user_profile(current_user: dict = Depends(get_current_user)):
+async def get_current_user_profile(current_user: dict = Depends(get_current_user_with_app_check)):
     """
     Get current user profile
     """

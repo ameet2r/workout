@@ -188,8 +188,9 @@ class TestExerciseEndpoints:
     @patch('app.api.routes.exercises.get_firestore_client')
     def test_update_exercise_unauthorized(self, mock_get_db, client, sample_exercise):
         """Test updating exercise as non-creator (should fail)."""
-        from app.core.auth import get_current_user
+        from app.core.auth import get_current_user_with_app_check
         from main import app
+        from tests.conftest import mock_get_current_user_with_app_check_impl
 
         # Override authentication for different user
         async def different_user():
@@ -197,25 +198,30 @@ class TestExerciseEndpoints:
                 "uid": "different-user-123",
                 "email": "different@example.com"
             }
-        app.dependency_overrides[get_current_user] = different_user
 
-        # Mock Firestore
-        mock_db = MagicMock()
-        mock_doc = MagicMock()
-        mock_doc.exists = True
-        mock_doc.to_dict.return_value = sample_exercise
+        try:
+            app.dependency_overrides[get_current_user_with_app_check] = different_user
 
-        mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
-        mock_get_db.return_value = mock_db
+            # Mock Firestore
+            mock_db = MagicMock()
+            mock_doc = MagicMock()
+            mock_doc.exists = True
+            mock_doc.to_dict.return_value = sample_exercise
 
-        update_data = {"name": "Unauthorized Update"}
-        response = client.patch(
-            f"/api/exercises/{sample_exercise['id']}",
-            json=update_data,
-            headers={"Authorization": "Bearer different-token"}
-        )
+            mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
+            mock_get_db.return_value = mock_db
 
-        assert response.status_code == 403
+            update_data = {"name": "Unauthorized Update"}
+            response = client.patch(
+                f"/api/exercises/{sample_exercise['id']}",
+                json=update_data,
+                headers={"Authorization": "Bearer different-token", "X-Firebase-AppCheck": "mock-token"}
+            )
+
+            assert response.status_code == 403
+        finally:
+            # Restore original mock
+            app.dependency_overrides[get_current_user_with_app_check] = mock_get_current_user_with_app_check_impl
 
     @patch('app.api.routes.exercises.get_firestore_client')
     def test_delete_exercise_success(self, mock_get_db, client, auth_headers, sample_exercise):
@@ -263,8 +269,9 @@ class TestExerciseEndpoints:
     @patch('app.api.routes.exercises.get_firestore_client')
     def test_delete_exercise_unauthorized(self, mock_get_db, client, sample_exercise):
         """Test deleting exercise as non-creator (should fail)."""
-        from app.core.auth import get_current_user
+        from app.core.auth import get_current_user_with_app_check
         from main import app
+        from tests.conftest import mock_get_current_user_with_app_check_impl
 
         # Override authentication for different user
         async def different_user():
@@ -272,23 +279,28 @@ class TestExerciseEndpoints:
                 "uid": "different-user-123",
                 "email": "different@example.com"
             }
-        app.dependency_overrides[get_current_user] = different_user
 
-        # Mock Firestore
-        mock_db = MagicMock()
-        mock_doc = MagicMock()
-        mock_doc.exists = True
-        mock_doc.to_dict.return_value = sample_exercise
+        try:
+            app.dependency_overrides[get_current_user_with_app_check] = different_user
 
-        mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
-        mock_get_db.return_value = mock_db
+            # Mock Firestore
+            mock_db = MagicMock()
+            mock_doc = MagicMock()
+            mock_doc.exists = True
+            mock_doc.to_dict.return_value = sample_exercise
 
-        response = client.delete(
-            f"/api/exercises/{sample_exercise['id']}",
-            headers={"Authorization": "Bearer different-token"}
-        )
+            mock_db.collection.return_value.document.return_value.get.return_value = mock_doc
+            mock_get_db.return_value = mock_db
 
-        assert response.status_code == 403
+            response = client.delete(
+                f"/api/exercises/{sample_exercise['id']}",
+                headers={"Authorization": "Bearer different-token", "X-Firebase-AppCheck": "mock-token"}
+            )
+
+            assert response.status_code == 403
+        finally:
+            # Restore original mock
+            app.dependency_overrides[get_current_user_with_app_check] = mock_get_current_user_with_app_check_impl
 
     @patch('app.api.routes.exercises.get_firestore_client')
     def test_delete_exercise_in_use(self, mock_get_db, client, auth_headers, sample_exercise):
