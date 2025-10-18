@@ -113,7 +113,13 @@ const ActiveWorkoutPage = () => {
   }, [currentHeartRate, isConnected])
 
   // Load session exercises and heart rate data from localStorage on mount
+  // This runs BEFORE fetchWorkoutData and sets a flag to prevent backend data from overwriting localStorage
+  const hasLocalStorageDataRef = useRef(false)
+
   useEffect(() => {
+    // Reset the flag when sessionId changes
+    hasLocalStorageDataRef.current = false
+
     const storedExercises = localStorage.getItem(`workout_session_${sessionId}_exercises`)
     const storedHeartRate = localStorage.getItem(`workout_session_${sessionId}_heart_rate`)
 
@@ -121,6 +127,7 @@ const ActiveWorkoutPage = () => {
       try {
         const parsed = JSON.parse(storedExercises)
         setSessionExercises(parsed)
+        hasLocalStorageDataRef.current = true // Mark that we have localStorage data
       } catch (err) {
         if (isDebugEnabled) {
           logger.error('Workout', 'Error parsing stored exercises:', err.message)
@@ -216,37 +223,41 @@ const ActiveWorkoutPage = () => {
         const planData = await authenticatedGet(`/api/workout-plans/${sessionData.workout_plan_id}`)
         setWorkoutPlan(planData)
 
-        // Initialize session exercises from plan if session exercises are empty
-        if (!sessionData.exercises || sessionData.exercises.length === 0) {
-          const initialExercises = planData.exercises.map(pe => ({
-            exercise_version_id: pe.exercise_version_id,
-            sets: [],
-            plannedSets: pe.planned_sets,
-            plannedReps: pe.planned_reps,
-            plannedWeight: pe.planned_weight,
-            isBodyweight: pe.is_bodyweight,
-            instruction: pe.instruction,
-            timers: pe.timers
-          }))
-          setSessionExercises(initialExercises)
-        } else {
-          // Map session exercises with plan data
-          const mappedExercises = planData.exercises.map(pe => {
-            const sessionEx = sessionData.exercises.find(
-              se => se.exercise_version_id === pe.exercise_version_id
-            )
-            return {
+        // Only update session exercises if we don't have localStorage data
+        // localStorage takes priority as it contains the most recent progress
+        if (!hasLocalStorageDataRef.current) {
+          // Initialize session exercises from plan if session exercises are empty
+          if (!sessionData.exercises || sessionData.exercises.length === 0) {
+            const initialExercises = planData.exercises.map(pe => ({
               exercise_version_id: pe.exercise_version_id,
-              sets: sessionEx?.sets || [],
+              sets: [],
               plannedSets: pe.planned_sets,
               plannedReps: pe.planned_reps,
               plannedWeight: pe.planned_weight,
               isBodyweight: pe.is_bodyweight,
               instruction: pe.instruction,
               timers: pe.timers
-            }
-          })
-          setSessionExercises(mappedExercises)
+            }))
+            setSessionExercises(initialExercises)
+          } else {
+            // Map session exercises with plan data
+            const mappedExercises = planData.exercises.map(pe => {
+              const sessionEx = sessionData.exercises.find(
+                se => se.exercise_version_id === pe.exercise_version_id
+              )
+              return {
+                exercise_version_id: pe.exercise_version_id,
+                sets: sessionEx?.sets || [],
+                plannedSets: pe.planned_sets,
+                plannedReps: pe.planned_reps,
+                plannedWeight: pe.planned_weight,
+                isBodyweight: pe.is_bodyweight,
+                instruction: pe.instruction,
+                timers: pe.timers
+              }
+            })
+            setSessionExercises(mappedExercises)
+          }
         }
       }
 
