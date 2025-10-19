@@ -581,23 +581,34 @@ const ActiveWorkoutPage = () => {
     handleStartTimer(timerIndex, duration)
   }
 
-  const playNotificationSound = () => {
-    // Create a simple beep sound using Web Audio API
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-    const oscillator = audioContext.createOscillator()
-    const gainNode = audioContext.createGain()
+  const playNotificationSound = async () => {
+    try {
+      // Create a simple beep sound using Web Audio API
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext
+      const audioContext = new AudioContextClass()
 
-    oscillator.connect(gainNode)
-    gainNode.connect(audioContext.destination)
+      // Resume the audio context if it's suspended (required by modern browsers)
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume()
+      }
 
-    oscillator.frequency.value = 800
-    oscillator.type = 'sine'
+      const oscillator = audioContext.createOscillator()
+      const gainNode = audioContext.createGain()
 
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
 
-    oscillator.start(audioContext.currentTime)
-    oscillator.stop(audioContext.currentTime + 0.5)
+      oscillator.frequency.value = 800
+      oscillator.type = 'sine'
+
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
+
+      oscillator.start(audioContext.currentTime)
+      oscillator.stop(audioContext.currentTime + 0.5)
+    } catch (error) {
+      console.error('Failed to play notification sound:', error)
+    }
   }
 
   const showNotification = () => {
