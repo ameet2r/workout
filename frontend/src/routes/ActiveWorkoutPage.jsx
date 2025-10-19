@@ -514,6 +514,16 @@ const ActiveWorkoutPage = () => {
       handleStopTimer()
     }
 
+    // Initialize AudioContext on user interaction for mobile compatibility
+    if (!audioRef.current) {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext
+        audioRef.current = new AudioContextClass()
+      } catch (error) {
+        console.error('Failed to initialize AudioContext:', error)
+      }
+    }
+
     setActiveTimerIndex(timerIndex)
     setTimeRemaining(duration)
     timerStartTimeRef.current = new Date()
@@ -583,29 +593,35 @@ const ActiveWorkoutPage = () => {
 
   const playNotificationSound = async () => {
     try {
-      // Create a simple beep sound using Web Audio API
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext
-      const audioContext = new AudioContextClass()
+      // Use the pre-initialized AudioContext (created during user interaction)
+      const audioContext = audioRef.current
 
-      // Resume the audio context if it's suspended (required by modern browsers)
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume()
+      if (audioContext) {
+        // Resume the audio context if it's suspended (required by modern browsers)
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume()
+        }
+
+        const oscillator = audioContext.createOscillator()
+        const gainNode = audioContext.createGain()
+
+        oscillator.connect(gainNode)
+        gainNode.connect(audioContext.destination)
+
+        oscillator.frequency.value = 800
+        oscillator.type = 'sine'
+
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
+
+        oscillator.start(audioContext.currentTime)
+        oscillator.stop(audioContext.currentTime + 0.5)
       }
 
-      const oscillator = audioContext.createOscillator()
-      const gainNode = audioContext.createGain()
-
-      oscillator.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-
-      oscillator.frequency.value = 800
-      oscillator.type = 'sine'
-
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
-
-      oscillator.start(audioContext.currentTime)
-      oscillator.stop(audioContext.currentTime + 0.5)
+      // Vibrate as a fallback notification on mobile devices
+      if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200]) // vibrate pattern: 200ms, pause 100ms, 200ms
+      }
     } catch (error) {
       console.error('Failed to play notification sound:', error)
     }
