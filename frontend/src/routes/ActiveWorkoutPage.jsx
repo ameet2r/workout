@@ -507,6 +507,60 @@ const ActiveWorkoutPage = () => {
     handleStopTimer()
   }
 
+  // Helper function to convert AudioBuffer to WAV format
+  const audioBufferToWav = (buffer) => {
+    const numOfChan = buffer.numberOfChannels;
+    const length = buffer.length * numOfChan * 2 + 44;
+    const bufferArray = new ArrayBuffer(length);
+    const view = new DataView(bufferArray);
+    const channels = [];
+    let offset = 0;
+    let pos = 0;
+
+    // Write WAVE header
+    setUint32(0x46464952); // "RIFF"
+    setUint32(length - 8); // file length - 8
+    setUint32(0x45564157); // "WAVE"
+
+    setUint32(0x20746d66); // "fmt " chunk
+    setUint32(16); // length = 16
+    setUint16(1); // PCM (uncompressed)
+    setUint16(numOfChan);
+    setUint32(buffer.sampleRate);
+    setUint32(buffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+    setUint16(numOfChan * 2); // block-align
+    setUint16(16); // 16-bit (hardcoded in this demo)
+
+    setUint32(0x61746164); // "data" - chunk
+    setUint32(length - pos - 4); // chunk length
+
+    // Write interleaved data
+    for (let i = 0; i < buffer.numberOfChannels; i++) {
+      channels.push(buffer.getChannelData(i));
+    }
+
+    while (pos < length) {
+      for (let i = 0; i < numOfChan; i++) {
+        const sample = Math.max(-1, Math.min(1, channels[i][offset])); // clamp
+        view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true); // convert to 16-bit
+        pos += 2;
+      }
+      offset++;
+    }
+
+    function setUint16(data) {
+      view.setUint16(pos, data, true);
+      pos += 2;
+    }
+
+    function setUint32(data) {
+      view.setUint32(pos, data, true);
+      pos += 4;
+    }
+
+    return bufferArray;
+  }
+
   // Timer management functions
   const handleStartTimer = (timerIndex, duration) => {
     // Stop any existing timer first
@@ -514,13 +568,56 @@ const ActiveWorkoutPage = () => {
       handleStopTimer()
     }
 
-    // Initialize AudioContext on user interaction for mobile compatibility
+    // Initialize audio on user interaction for mobile compatibility
     if (!audioRef.current) {
       try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext
-        audioRef.current = new AudioContextClass()
+        // Generate a beep sound using Web Audio API and create a blob URL
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContextClass();
+        const sampleRate = audioContext.sampleRate;
+        const duration = 0.5; // 0.5 seconds
+        const frequency = 800; // 800 Hz
+
+        // Create offline context to render the beep
+        const offlineContext = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+        const oscillator = offlineContext.createOscillator();
+        const gainNode = offlineContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(offlineContext.destination);
+
+        oscillator.frequency.value = frequency;
+        oscillator.type = 'sine';
+
+        gainNode.gain.setValueAtTime(0.3, 0);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, duration);
+
+        oscillator.start(0);
+        oscillator.stop(duration);
+
+        // Render and create audio element
+        offlineContext.startRendering().then(renderedBuffer => {
+          // Convert buffer to WAV blob
+          const wav = audioBufferToWav(renderedBuffer);
+          const blob = new Blob([wav], { type: 'audio/wav' });
+          const url = URL.createObjectURL(blob);
+
+          const audioElement = new Audio(url);
+          audioElement.volume = 0.5;
+          audioRef.current = audioElement;
+
+          // Play and pause immediately to unlock audio on iOS
+          audioElement.play().then(() => {
+            audioElement.pause();
+            audioElement.currentTime = 0;
+          }).catch(() => {
+            // Ignore errors - we'll try again when the timer completes
+          });
+        }).catch(error => {
+          console.error('Failed to render audio:', error);
+        });
       } catch (error) {
-        console.error('Failed to initialize AudioContext:', error)
+        console.error('Failed to initialize audio:', error);
       }
     }
 
@@ -593,37 +690,24 @@ const ActiveWorkoutPage = () => {
 
   const playNotificationSound = async () => {
     try {
-      // Use the pre-initialized AudioContext (created during user interaction)
-      const audioContext = audioRef.current
+      // Play the audio element (initialized during user interaction)
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0; // Reset to start
+        const playPromise = audioRef.current.play();
 
-      if (audioContext) {
-        // Resume the audio context if it's suspended (required by modern browsers)
-        if (audioContext.state === 'suspended') {
-          await audioContext.resume()
+        if (playPromise !== undefined) {
+          playPromise.catch((error) => {
+            console.error('Failed to play audio:', error);
+          });
         }
-
-        const oscillator = audioContext.createOscillator()
-        const gainNode = audioContext.createGain()
-
-        oscillator.connect(gainNode)
-        gainNode.connect(audioContext.destination)
-
-        oscillator.frequency.value = 800
-        oscillator.type = 'sine'
-
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5)
-
-        oscillator.start(audioContext.currentTime)
-        oscillator.stop(audioContext.currentTime + 0.5)
       }
 
       // Vibrate as a fallback notification on mobile devices
       if ('vibrate' in navigator) {
-        navigator.vibrate([200, 100, 200]) // vibrate pattern: 200ms, pause 100ms, 200ms
+        navigator.vibrate([200, 100, 200]); // vibrate pattern: 200ms, pause 100ms, 200ms
       }
     } catch (error) {
-      console.error('Failed to play notification sound:', error)
+      console.error('Failed to play notification sound:', error);
     }
   }
 
