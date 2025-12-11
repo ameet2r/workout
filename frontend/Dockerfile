@@ -1,7 +1,7 @@
 # ==============================
 # Stage 1: Build the frontend
 # ==============================
-FROM node:20-slim AS build
+FROM node:slim AS build
 
 # Set working directory
 WORKDIR /app
