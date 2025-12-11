@@ -15,6 +15,7 @@ import ProgressPage from './routes/ProgressPage'
 import CardioProgressPage from './routes/CardioProgressPage'
 import ExerciseLibraryPage from './routes/ExerciseLibraryPage'
 import ProfilePage from './routes/ProfilePage'
+import NotFoundPage from './routes/NotFoundPage'
 
 function App() {
   return (
@@ -43,7 +44,9 @@ function App() {
                   <Route path="progress/cardio" element={<CardioProgressPage />} />
                   <Route path="exercises" element={<ExerciseLibraryPage />} />
                   <Route path="profile" element={<ProfilePage />} />
+                  <Route path="*" element={<NotFoundPage />} />
                 </Route>
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Router>
           </HistoryProvider>
