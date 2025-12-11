@@ -957,7 +957,7 @@ const ActiveWorkoutPage = () => {
       {/* Current Exercise */}
       {currentExercise && (
         <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card>
               <CardContent>
                 <Typography variant="h5" gutterBottom>
@@ -1109,7 +1109,7 @@ const ActiveWorkoutPage = () => {
                       </Typography>
                       <Grid container spacing={2}>
                         {exerciseHistory.actual_1rm && (
-                          <Grid item xs={6}>
+                          <Grid size={6}>
                             <Box sx={{ textAlign: 'center' }}>
                               <Typography variant="caption" color="text.secondary" display="block">
                                 Actual 1RM
@@ -1121,7 +1121,7 @@ const ActiveWorkoutPage = () => {
                           </Grid>
                         )}
                         {exerciseHistory.estimated_1rm && (
-                          <Grid item xs={6}>
+                          <Grid size={6}>
                             <Box sx={{ textAlign: 'center' }}>
                               <Typography variant="caption" color="text.secondary" display="block">
                                 Est. 1RM
@@ -1133,7 +1133,7 @@ const ActiveWorkoutPage = () => {
                           </Grid>
                         )}
                         {!exerciseHistory.actual_1rm && !exerciseHistory.estimated_1rm && (
-                          <Grid item xs={12}>
+                          <Grid size={12}>
                             <Typography variant="body2" color="text.secondary">
                               No previous data for this exercise
                             </Typography>
@@ -1145,7 +1145,7 @@ const ActiveWorkoutPage = () => {
                 })()}
 
                 <Grid container spacing={2}>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <TextField
                       label="Reps"
                       type="number"
@@ -1157,7 +1157,7 @@ const ActiveWorkoutPage = () => {
                       helperText={oneRmMode ? 'Fixed at 1 for 1RM' : ''}
                     />
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <TextField
                       label="Weight (lbs)"
                       type="number"
@@ -1168,7 +1168,7 @@ const ActiveWorkoutPage = () => {
                       size="small"
                     />
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <FormControl fullWidth size="small">
                       <InputLabel>RPE</InputLabel>
                       <Select
@@ -1183,7 +1183,7 @@ const ActiveWorkoutPage = () => {
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid size={12}>
                     <Button
                       variant="contained"
                       startIcon={<Add />}
@@ -1199,7 +1199,7 @@ const ActiveWorkoutPage = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>

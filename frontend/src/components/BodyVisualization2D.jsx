@@ -62,14 +62,14 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
       {/* Simple grid-based body visualization */}
       <Grid container spacing={1} sx={{ maxWidth: 400, margin: '0 auto' }}>
         {/* Upper body */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Typography variant="caption" align="center" display="block" gutterBottom>
             Upper Body
           </Typography>
         </Grid>
 
         {/* Shoulders */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box
             sx={{
               height: 40,
@@ -88,7 +88,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
         </Grid>
 
         {/* Chest and Back row */}
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Box
             sx={{
               height: 50,
@@ -105,7 +105,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Box
             sx={{
               height: 50,
@@ -124,7 +124,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
         </Grid>
 
         {/* Arms row */}
-        <Grid item xs={4}>
+        <Grid size={4}>
           <Box
             sx={{
               height: 45,
@@ -141,7 +141,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={4}>
+        <Grid size={4}>
           <Box
             sx={{
               height: 45,
@@ -158,7 +158,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={4}>
+        <Grid size={4}>
           <Box
             sx={{
               height: 45,
@@ -177,12 +177,12 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
         </Grid>
 
         {/* Core */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Typography variant="caption" align="center" display="block" sx={{ mt: 1 }} gutterBottom>
             Core
           </Typography>
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Box
             sx={{
               height: 45,
@@ -199,7 +199,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Box
             sx={{
               height: 45,
@@ -216,7 +216,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Box
             sx={{
               height: 40,
@@ -235,12 +235,12 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
         </Grid>
 
         {/* Lower body */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Typography variant="caption" align="center" display="block" sx={{ mt: 1 }} gutterBottom>
             Lower Body
           </Typography>
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Box
             sx={{
               height: 45,
@@ -257,7 +257,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Box
             sx={{
               height: 45,
@@ -274,7 +274,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Box
             sx={{
               height: 50,
@@ -291,7 +291,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Box
             sx={{
               height: 50,
@@ -308,7 +308,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={4}>
+        <Grid size={4}>
           <Box
             sx={{
               height: 40,
@@ -325,7 +325,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={4}>
+        <Grid size={4}>
           <Box
             sx={{
               height: 40,
@@ -342,7 +342,7 @@ const BodyVisualization2D = ({ bodyPartFrequency = [] }) => {
             </Typography>
           </Box>
         </Grid>
-        <Grid item xs={4}>
+        <Grid size={4}>
           <Box
             sx={{
               height: 40,

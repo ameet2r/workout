@@ -38,7 +38,7 @@ const DashboardPage = () => {
 
       <Grid container spacing={3} sx={{ mt: 2 }}>
         {quickActions.map((action) => (
-          <Grid item xs={12} sm={6} md={4} key={action.title}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={action.title}>
             <Paper
               elevation={2}
               sx={{
@@ -97,7 +97,7 @@ const DashboardPage = () => {
               const isCompleted = !!session.end_time
 
               return (
-                <Grid item xs={12} key={session.id}>
+                <Grid size={12} key={session.id}>
                   <Card
                     sx={{
                       cursor: 'pointer',
@@ -125,7 +125,7 @@ const DashboardPage = () => {
                       </Box>
 
                       <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid item xs={4}>
+                        <Grid size={4}>
                           <Typography variant="caption" color="text.secondary" display="block">
                             Duration
                           </Typography>
@@ -133,7 +133,7 @@ const DashboardPage = () => {
                             {calculateDuration(session.start_time, session.end_time)}
                           </Typography>
                         </Grid>
-                        <Grid item xs={4}>
+                        <Grid size={4}>
                           <Typography variant="caption" color="text.secondary" display="block">
                             Exercises
                           </Typography>
@@ -141,7 +141,7 @@ const DashboardPage = () => {
                             {session.exercises?.length || 0}
                           </Typography>
                         </Grid>
-                        <Grid item xs={4}>
+                        <Grid size={4}>
                           <Typography variant="caption" color="text.secondary" display="block">
                             Total Sets
                           </Typography>

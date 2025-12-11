@@ -180,7 +180,7 @@ const HistoryPage = () => {
           </ButtonGroup>
         </Box>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               type="date"
@@ -190,7 +190,7 @@ const HistoryPage = () => {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               type="date"
@@ -209,7 +209,7 @@ const HistoryPage = () => {
           const isCompleted = !!session.end_time
 
           return (
-            <Grid item xs={12} key={session.id}>
+            <Grid size={12} key={session.id}>
               <Card
                 sx={{
                   cursor: 'pointer',
@@ -237,7 +237,7 @@ const HistoryPage = () => {
                   </Box>
 
                   <Grid container spacing={2}>
-                    <Grid item xs={3}>
+                    <Grid size={3}>
                       <Typography variant="caption" color="text.secondary" display="block">
                         Duration
                       </Typography>
@@ -245,7 +245,7 @@ const HistoryPage = () => {
                         {calculateDuration(session.start_time, session.end_time)}
                       </Typography>
                     </Grid>
-                    <Grid item xs={3}>
+                    <Grid size={3}>
                       <Typography variant="caption" color="text.secondary" display="block">
                         Exercises
                       </Typography>
@@ -253,7 +253,7 @@ const HistoryPage = () => {
                         {session.exercises?.length || 0}
                       </Typography>
                     </Grid>
-                    <Grid item xs={3}>
+                    <Grid size={3}>
                       <Typography variant="caption" color="text.secondary" display="block">
                         Total Sets
                       </Typography>
@@ -261,7 +261,7 @@ const HistoryPage = () => {
                         {getTotalSets(session)}
                       </Typography>
                     </Grid>
-                    <Grid item xs={3}>
+                    <Grid size={3}>
                       <Typography variant="caption" color="text.secondary" display="block">
                         Volume
                       </Typography>

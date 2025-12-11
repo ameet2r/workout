@@ -117,7 +117,7 @@ const ExerciseEditCard = ({
 
       {/* Main editing fields */}
       <Grid container spacing={2}>
-        <Grid item xs={4} sm={3}>
+        <Grid size={{ xs: 4, sm: 3 }}>
           <TextField
             size="small"
             label="Sets"
@@ -128,7 +128,7 @@ const ExerciseEditCard = ({
             disabled={disabled}
           />
         </Grid>
-        <Grid item xs={4} sm={3}>
+        <Grid size={{ xs: 4, sm: 3 }}>
           <TextField
             size="small"
             label="Reps"
@@ -139,7 +139,7 @@ const ExerciseEditCard = ({
             disabled={disabled}
           />
         </Grid>
-        <Grid item xs={4} sm={3}>
+        <Grid size={{ xs: 4, sm: 3 }}>
           <TextField
             size="small"
             label="Weight"
@@ -150,7 +150,7 @@ const ExerciseEditCard = ({
             disabled={disabled || exercise.is_bodyweight}
           />
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <FormControlLabel
             control={
               <Checkbox
@@ -169,7 +169,7 @@ const ExerciseEditCard = ({
         </Grid>
 
         {/* Instruction field */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <TextField
             size="small"
             label="Instruction (optional)"
@@ -184,7 +184,7 @@ const ExerciseEditCard = ({
         </Grid>
 
         {/* Timer management */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
             Timers
           </Typography>
@@ -204,7 +204,7 @@ const ExerciseEditCard = ({
             </Box>
           )}
           <Grid container spacing={1}>
-            <Grid item xs={3} sm={2}>
+            <Grid size={{ xs: 3, sm: 2 }}>
               <TextField
                 size="small"
                 label="Hours"
@@ -216,7 +216,7 @@ const ExerciseEditCard = ({
                 inputProps={{ min: 0 }}
               />
             </Grid>
-            <Grid item xs={3} sm={2}>
+            <Grid size={{ xs: 3, sm: 2 }}>
               <TextField
                 size="small"
                 label="Minutes"
@@ -228,7 +228,7 @@ const ExerciseEditCard = ({
                 inputProps={{ min: 0, max: 59 }}
               />
             </Grid>
-            <Grid item xs={3} sm={2}>
+            <Grid size={{ xs: 3, sm: 2 }}>
               <TextField
                 size="small"
                 label="Seconds"
@@ -240,7 +240,7 @@ const ExerciseEditCard = ({
                 inputProps={{ min: 0, max: 59 }}
               />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <FormControl fullWidth size="small" disabled={disabled}>
                 <InputLabel>Timer Type</InputLabel>
                 <Select
@@ -253,7 +253,7 @@ const ExerciseEditCard = ({
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <Button
                 variant="outlined"
                 size="small"
@@ -269,7 +269,7 @@ const ExerciseEditCard = ({
 
         {/* Exercise History */}
         {(history?.sessions?.length > 0 || history?.estimated_1rm || history?.actual_1rm) && (
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Accordion sx={{ bgcolor: 'success.lighter' }}>
               <AccordionSummary expandIcon={<ExpandMore />}>
                 <Typography variant="subtitle2">
@@ -280,7 +280,7 @@ const ExerciseEditCard = ({
                 {/* Stats Summary */}
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                   {history.estimated_1rm && (
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       <Paper sx={{ p: 1, bgcolor: 'background.paper', textAlign: 'center' }}>
                         <Typography variant="caption" color="text.secondary" display="block">
                           Est. 1RM
@@ -292,7 +292,7 @@ const ExerciseEditCard = ({
                     </Grid>
                   )}
                   {history.actual_1rm && (
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       <Paper sx={{ p: 1, bgcolor: 'primary.main', color: 'primary.contrastText', textAlign: 'center' }}>
                         <Typography variant="caption" display="block">
                           Actual 1RM

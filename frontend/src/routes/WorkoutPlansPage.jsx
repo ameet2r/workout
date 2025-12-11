@@ -472,7 +472,7 @@ const WorkoutPlansPage = () => {
       ) : (
         <Grid container spacing={2}>
           {workoutPlans.map((plan) => (
-            <Grid item xs={12} sm={6} md={4} key={plan.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={plan.id}>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -550,7 +550,7 @@ const WorkoutPlansPage = () => {
               </Alert>
             )}
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Autocomplete
                   size="small"
                   options={exercises}
@@ -572,7 +572,7 @@ const WorkoutPlansPage = () => {
                   </Typography>
                 )}
               </Grid>
-              <Grid item xs={4} sm={2}>
+              <Grid size={{ xs: 4, sm: 2 }}>
                 <TextField
                   size="small"
                   label="Sets"
@@ -583,7 +583,7 @@ const WorkoutPlansPage = () => {
                   disabled={loading}
                 />
               </Grid>
-              <Grid item xs={4} sm={2}>
+              <Grid size={{ xs: 4, sm: 2 }}>
                 <TextField
                   size="small"
                   label="Reps"
@@ -594,7 +594,7 @@ const WorkoutPlansPage = () => {
                   disabled={loading}
                 />
               </Grid>
-              <Grid item xs={4} sm={2}>
+              <Grid size={{ xs: 4, sm: 2 }}>
                 <TextField
                   size="small"
                   label="Weight"
@@ -605,7 +605,7 @@ const WorkoutPlansPage = () => {
                   disabled={loading || currentIsBodyweight}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   size="small"
                   label="Instruction (optional)"
@@ -618,12 +618,12 @@ const WorkoutPlansPage = () => {
                   placeholder="Add specific instructions for this exercise in the plan..."
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   Add Timer (optional)
                 </Typography>
               </Grid>
-              <Grid item xs={3} sm={2}>
+              <Grid size={{ xs: 3, sm: 2 }}>
                 <TextField
                   size="small"
                   label="Hours"
@@ -635,7 +635,7 @@ const WorkoutPlansPage = () => {
                   inputProps={{ min: 0 }}
                 />
               </Grid>
-              <Grid item xs={3} sm={2}>
+              <Grid size={{ xs: 3, sm: 2 }}>
                 <TextField
                   size="small"
                   label="Minutes"
@@ -647,7 +647,7 @@ const WorkoutPlansPage = () => {
                   inputProps={{ min: 0, max: 59 }}
                 />
               </Grid>
-              <Grid item xs={3} sm={2}>
+              <Grid size={{ xs: 3, sm: 2 }}>
                 <TextField
                   size="small"
                   label="Seconds"
@@ -659,7 +659,7 @@ const WorkoutPlansPage = () => {
                   inputProps={{ min: 0, max: 59 }}
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <FormControl fullWidth size="small" disabled={loading}>
                   <InputLabel>Timer Type</InputLabel>
                   <Select
@@ -672,7 +672,7 @@ const WorkoutPlansPage = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <Button
                   variant="outlined"
                   size="small"
@@ -684,7 +684,7 @@ const WorkoutPlansPage = () => {
                 </Button>
               </Grid>
               {currentTimers.length > 0 && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                     {currentTimers.map((timer, index) => (
                       <Chip
@@ -749,7 +749,7 @@ const WorkoutPlansPage = () => {
                 {/* Stats Summary */}
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                   {exerciseHistory.estimated_1rm && (
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       <Paper sx={{ p: 1, bgcolor: 'background.paper', textAlign: 'center' }}>
                         <Typography variant="caption" color="text.secondary" display="block">
                           Est. 1RM
@@ -761,7 +761,7 @@ const WorkoutPlansPage = () => {
                     </Grid>
                   )}
                   {exerciseHistory.actual_1rm && (
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       <Paper sx={{ p: 1, bgcolor: 'primary.main', color: 'primary.contrastText', textAlign: 'center' }}>
                         <Typography variant="caption" display="block">
                           Actual 1RM

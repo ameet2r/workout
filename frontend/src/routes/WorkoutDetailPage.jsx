@@ -273,7 +273,7 @@ const WorkoutDetailPage = () => {
         <Divider sx={{ mb: 3 }} />
 
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
@@ -285,7 +285,7 @@ const WorkoutDetailPage = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
@@ -297,7 +297,7 @@ const WorkoutDetailPage = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
@@ -366,7 +366,7 @@ const WorkoutDetailPage = () => {
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 {/* Heart Rate */}
                 {session.garmin_data.avg_heart_rate && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -380,7 +380,7 @@ const WorkoutDetailPage = () => {
                   </Grid>
                 )}
                 {session.garmin_data.max_heart_rate && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -396,7 +396,7 @@ const WorkoutDetailPage = () => {
 
                 {/* Calories */}
                 {session.garmin_data.calories && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -412,7 +412,7 @@ const WorkoutDetailPage = () => {
 
                 {/* Distance and Pace */}
                 {session.garmin_data.distance && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -426,7 +426,7 @@ const WorkoutDetailPage = () => {
                   </Grid>
                 )}
                 {session.garmin_data.pace && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -442,7 +442,7 @@ const WorkoutDetailPage = () => {
 
                 {/* Elevation */}
                 {session.garmin_data.ascent && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -456,7 +456,7 @@ const WorkoutDetailPage = () => {
                   </Grid>
                 )}
                 {session.garmin_data.descent && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -470,7 +470,7 @@ const WorkoutDetailPage = () => {
                   </Grid>
                 )}
                 {session.garmin_data.avg_altitude && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -486,7 +486,7 @@ const WorkoutDetailPage = () => {
 
                 {/* Cadence */}
                 {session.garmin_data.avg_cadence && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -502,7 +502,7 @@ const WorkoutDetailPage = () => {
 
                 {/* Power */}
                 {session.garmin_data.avg_power && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -516,7 +516,7 @@ const WorkoutDetailPage = () => {
                   </Grid>
                 )}
                 {session.garmin_data.max_power && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -532,7 +532,7 @@ const WorkoutDetailPage = () => {
 
                 {/* Steps */}
                 {session.garmin_data.total_steps && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -548,7 +548,7 @@ const WorkoutDetailPage = () => {
 
                 {/* Temperature */}
                 {session.garmin_data.avg_temperature && (
-                  <Grid item xs={6} sm={4} md={3}>
+                  <Grid size={{ xs: 6, sm: 4, md: 3 }}>
                     <Card variant="outlined">
                       <CardContent>
                         <Typography variant="caption" color="text.secondary" display="block">
@@ -572,7 +572,7 @@ const WorkoutDetailPage = () => {
                 </Typography>
                 <Grid container spacing={2}>
                   {session.garmin_data.avg_vertical_oscillation && (
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="caption" color="text.secondary" display="block">
@@ -586,7 +586,7 @@ const WorkoutDetailPage = () => {
                     </Grid>
                   )}
                   {session.garmin_data.avg_ground_contact_time && (
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="caption" color="text.secondary" display="block">
@@ -600,7 +600,7 @@ const WorkoutDetailPage = () => {
                     </Grid>
                   )}
                   {session.garmin_data.avg_stride_length && (
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="caption" color="text.secondary" display="block">
@@ -625,7 +625,7 @@ const WorkoutDetailPage = () => {
                 </Typography>
                 <Grid container spacing={2}>
                   {session.garmin_data.training_effect && (
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="caption" color="text.secondary" display="block">
@@ -639,7 +639,7 @@ const WorkoutDetailPage = () => {
                     </Grid>
                   )}
                   {session.garmin_data.anaerobic_training_effect && (
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="caption" color="text.secondary" display="block">
@@ -653,7 +653,7 @@ const WorkoutDetailPage = () => {
                     </Grid>
                   )}
                   {session.garmin_data.vo2max_estimate && (
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="caption" color="text.secondary" display="block">
@@ -667,7 +667,7 @@ const WorkoutDetailPage = () => {
                     </Grid>
                   )}
                   {session.garmin_data.lactate_threshold_heart_rate && (
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="caption" color="text.secondary" display="block">
@@ -681,7 +681,7 @@ const WorkoutDetailPage = () => {
                     </Grid>
                   )}
                   {session.garmin_data.recovery_time && (
-                    <Grid item xs={6} sm={4}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <Card variant="outlined">
                         <CardContent>
                           <Typography variant="caption" color="text.secondary" display="block">

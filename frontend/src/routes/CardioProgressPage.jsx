@@ -368,7 +368,7 @@ const CardioProgressPage = () => {
 
       {/* Summary Cards */}
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -383,7 +383,7 @@ const CardioProgressPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -395,7 +395,7 @@ const CardioProgressPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -407,7 +407,7 @@ const CardioProgressPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -437,7 +437,7 @@ const CardioProgressPage = () => {
         Fitness Trends
       </Typography>
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           {vo2MaxData.hasData ? (
             <Card>
               <CardContent>
@@ -480,7 +480,7 @@ const CardioProgressPage = () => {
             />
           )}
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           {heartRateData.hasData ? (
             <Card>
               <CardContent>
@@ -535,7 +535,7 @@ const CardioProgressPage = () => {
         Activity Volume
       </Typography>
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -567,7 +567,7 @@ const CardioProgressPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -598,7 +598,7 @@ const CardioProgressPage = () => {
         Performance Metrics
       </Typography>
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           {paceData.hasData ? (
             <Card>
               <CardContent>
@@ -642,7 +642,7 @@ const CardioProgressPage = () => {
             />
           )}
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           {powerData.hasData ? (
             <Card>
               <CardContent>
@@ -692,7 +692,7 @@ const CardioProgressPage = () => {
         Training Load & Recovery
       </Typography>
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12}>
+        <Grid size={12}>
           {trainingLoadData.hasData ? (
             <Card>
               <CardContent>

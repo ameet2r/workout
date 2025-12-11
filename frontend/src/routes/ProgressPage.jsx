@@ -332,7 +332,7 @@ const ProgressPage = () => {
           </ButtonGroup>
         </Box>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               type="date"
@@ -342,7 +342,7 @@ const ProgressPage = () => {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               type="date"
@@ -357,7 +357,7 @@ const ProgressPage = () => {
 
       {/* Overall Statistics */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
@@ -369,7 +369,7 @@ const ProgressPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
@@ -384,7 +384,7 @@ const ProgressPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
@@ -399,7 +399,7 @@ const ProgressPage = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Typography color="text.secondary" gutterBottom variant="body2">
@@ -431,7 +431,7 @@ const ProgressPage = () => {
             </Button>
           </Box>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Card variant="outlined">
                 <CardContent>
                   <Typography color="text.secondary" gutterBottom variant="body2">
@@ -443,7 +443,7 @@ const ProgressPage = () => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Card variant="outlined">
                 <CardContent>
                   <Typography color="text.secondary" gutterBottom variant="body2">
@@ -455,7 +455,7 @@ const ProgressPage = () => {
                 </CardContent>
               </Card>
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Card variant="outlined">
                 <CardContent>
                   <Box display="flex" alignItems="center" mb={1}>

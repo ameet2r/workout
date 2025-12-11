@@ -200,7 +200,7 @@ const ExerciseLibraryPage = () => {
       ) : (
         <Grid container spacing={2}>
           {filteredExercises.map((exercise) => (
-            <Grid item xs={12} sm={6} md={4} key={exercise.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={exercise.id}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
